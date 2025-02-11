@@ -13,7 +13,10 @@ tasks:
       working_dir: src
       params:
         script: |
-          /opt/mongodbtoolchain/v4/bin/python3 src/mongo_linux_build.py
+          /opt/mongodbtoolchain/v4/bin/python3 -m virtualenv venv
+          ./venv/bin/activate
+          python3 -m pip install docker
+          python3 src/mongo_linux_build.py
           ./mongo_bazel --version
 
 buildvariants:

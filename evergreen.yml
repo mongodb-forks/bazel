@@ -18,9 +18,30 @@ tasks:
 
 buildvariants:
 
-- name: ubuntu2004
-  display_name: Ubuntu 20.04
+- name: linux_x86_64
+  display_name: Linux x86_64
   run_on:
-  - ubuntu2204-large
+  - rhel8.8-large
+  tasks:
+  - name: compile
+
+- name: linux_arm64
+  display_name: Linux arm64
+  run_on:
+  - rhel8.8-arm64-large
+  tasks:
+  - name: compile
+
+- name: linux_s390x
+  display_name: Linux s390x
+  run_on:
+  - rhel83-zseries-small
+  tasks:
+  - name: compile
+
+- name: linux_ppc
+  display_name: Linux PPC
+  run_on:
+  - rhel81-power8-small
   tasks:
   - name: compile

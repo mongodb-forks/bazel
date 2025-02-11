@@ -1,10 +1,11 @@
-import docker
 import os
 import traceback
 import sys
 import platform
+import locale
+import podman
 
-client = docker.from_env()
+client = podman.from_env()
 try:
     container = client.containers.get("bazel_build")
 except:
@@ -21,49 +22,42 @@ else:
 
 reported_arch = platform.machine().lower()
 if reported_arch in ["aarch64", "arm64"]:
-    arch = "arm64"
+    bazel_url = "https://github.com/bazelbuild/bazel/releases/download/7.5.0/bazel-7.5.0-linux-arm64"
 elif reported_arch in ["x86_64", "amd64"]:
-    arch = "x86_64"
+    bazel_url = "https://github.com/bazelbuild/bazel/releases/download/7.5.0/bazel-7.5.0-linux-x86_64"
 elif reported_arch == "s390x":
-    arch = "s390x"
+    bazel_url = "https://mdb-build-public.s3.amazonaws.com/bazel-binaries/7.5.0/bazel-7.5.0-linux-s390x"
 elif reported_arch == "ppc64le":
-    arch = "ppc64le"
+    bazel_url = "https://mdb-build-public.s3.amazonaws.com/bazel-binaries/7.5.0/bazel-7.5.0-linux-ppc64le"
 
 container = client.containers.run(
         image = "redhat/ubi8:8.10-1184", 
         name="bazel_build", 
-        volumes={
-            os.path.join(os.getcwd(), "src"): {
-                'bind': "/tmp/bazel",
-                'mode': 'rw',
-            }
-        },
+        mounts=[{
+            "type": "bind",
+            "source": os.path.join(os.getcwd(), "src"),
+            "target": "/tmp/bazel",
+            "read_only": False
+        }],
         network='host',
         tty=True,
         detach=True,
-        entrypoint="/bin/bash",
-
     )
 try:
     cmds = [
-        'yum install -y gcc gcc-c++ python3 zip java-21-openjdk',
-        f'curl -L https://github.com/bazelbuild/bazel/releases/download/7.5.0/bazel-7.5.0-linux-{arch} -o bazel_bootstrap',
+        'yum install -y gcc gcc-c++ python3 zip java-21-openjdk-devel',
+        f'curl -L {bazel_url} -o bazel_bootstrap',
         'chmod +x ./bazel_bootstrap',
-        './bazel_bootstrap build //src:bazel-dev',
-        'cp bazel-bin/src/bazel-dev mongo_bazel'
+        './bazel_bootstrap build //src:bazel --compilation_mode=opt',
+        'cp bazel-bin/src/bazel mongo_bazel'
     ]
     
     for cmd in cmds:
         print(f"cmd:\n{cmd}")
         print("output:")
-        result = container.exec_run(cmd, workdir="/tmp/bazel", stream=True, demux=True)
-        for stream in result:
-            if stream:
-                for chunk in stream:
-                    if chunk[0]:
-                        sys.stdout.write(chunk[0].decode())
-                    if chunk[1]:
-                        sys.stdout.write(chunk[1].decode())
+        result = container.exec_run(cmd, workdir="/tmp/bazel")
+        print(result[1].decode("latin1"))
+      
             
 except:
     traceback.print_exc()

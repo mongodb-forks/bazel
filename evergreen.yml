@@ -13,7 +13,8 @@ tasks:
       working_dir: src
       params:
         script: |
-          python3 src/mongo_linux_build.py
+          podman pull docker.io/redhat/ubi8:8.10-1184 
+          python3 src/mongo_linux_build.py 
           ./src/mongo_bazel info
 
 buildvariants:

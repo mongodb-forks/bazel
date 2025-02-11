@@ -14,7 +14,7 @@ tasks:
       params:
         script: |
           python3 src/mongo_linux_build.py
-          ./mongo_bazel info
+          ./src/mongo_bazel info
 
 buildvariants:
 

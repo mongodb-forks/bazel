@@ -33,7 +33,7 @@ container = client.containers.run(
         image = "redhat/ubi8:8.10-1184", 
         name="bazel_build", 
         volumes={
-            os.getcwd(): {
+            os.path.join(os.getcwd(), "src"): {
                 'bind': "/tmp/bazel",
                 'mode': 'rw',
             }

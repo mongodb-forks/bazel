@@ -5,7 +5,7 @@ functions:
         directory: src
   
 tasks:
-- name: compile
+- name: build
   depends_on: []
   commands:
     - func: "fetch source"
@@ -14,7 +14,10 @@ tasks:
       params:
         script: |
           podman pull docker.io/redhat/ubi8:8.10-1184 
-          python3 src/mongo_linux_build.py 
+          /opt/mongodbtoolchain/v4/bin/python3 -m virtualenv venv
+          source ./venv/bin/activate
+          ./venv/bin/python3 -m pip install podman
+          ./venv/bin/python3 src/mongo_linux_build.py 
           ./src/mongo_bazel info
 
 buildvariants:
@@ -24,25 +27,25 @@ buildvariants:
   run_on:
   - rhel8.8-large
   tasks:
-  - name: compile
+  - name: build
 
 - name: linux_arm64
   display_name: Linux arm64
   run_on:
   - rhel8.8-arm64-large
   tasks:
-  - name: compile
+  - name: build
 
 - name: linux_s390x
   display_name: Linux s390x
   run_on:
   - rhel83-zseries-small
   tasks:
-  - name: compile
+  - name: build
 
 - name: linux_ppc
   display_name: Linux PPC
   run_on:
   - rhel81-power8-small
   tasks:
-  - name: compile
+  - name: build

@@ -9,21 +9,26 @@ import subprocess
 docker_image = 'redhat/ubi8:8.10-1184'
 
 podman_cmds = [
-    f"sudo podman pull docker.io/{docker_image}",
-    "sudo systemctl --user enable podman.socket",
-    "sudo systemctl --user start podman.socket",
+    "systemctl --user enable podman.socket",
+    "systemctl --user start podman.socket",
 ]
 
 for cmd in podman_cmds:
     subprocess.run(cmd.split(' '))
 
-proc = subprocess.run(["sudo", "systemctl", "--user", "status", "podman.socket"], capture_output=True, text=True)
-for line in proc.stdout.readlines():
-    if line 
+proc = subprocess.run(["systemctl", "--user", "status", "podman.socket"], capture_output=True, text=True)
+for line in proc.stdout.split("\n"):
+    print(line)
+    if 'Listen: ' in line:
+        socket_path = "unix://" + line.strip().split(" ")[1]
+        break
+
+subprocess.run(f"podman pull docker.io/{docker_image}".split(' ')),
+
 
 client = podman.from_env()
 try:
-    container = client.containers.get("bazel_build", base_url="unix:///run/user/0/podman/podman.sock" )
+    container = client.containers.get("bazel_build", base_url=socket_path)
 except:
     pass
 else:
@@ -48,7 +53,6 @@ elif reported_arch == "ppc64le":
 
 container = client.containers.run(
         image = "redhat/ubi8:8.10-1184",
-        
         name="bazel_build", 
         mounts=[{
             "type": "bind",

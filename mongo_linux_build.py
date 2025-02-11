@@ -12,11 +12,14 @@ podman_cmds = [
     f"sudo podman pull docker.io/{docker_image}",
     "sudo systemctl --user enable podman.socket",
     "sudo systemctl --user start podman.socket",
-    "sudo systemctl --user status podman.socket",
 ]
 
 for cmd in podman_cmds:
     subprocess.run(cmd.split(' '))
+
+proc = subprocess.run(["sudo", "systemctl", "--user", "status", "podman.socket"], capture_output=True, text=True)
+for line in proc.stdout.readlines():
+    if line 
 
 client = podman.from_env()
 try:
@@ -44,7 +47,8 @@ elif reported_arch == "ppc64le":
     bazel_url = "https://mdb-build-public.s3.amazonaws.com/bazel-binaries/7.5.0/bazel-7.5.0-linux-ppc64le"
 
 container = client.containers.run(
-        image = "redhat/ubi8:8.10-1184", 
+        image = "redhat/ubi8:8.10-1184",
+        
         name="bazel_build", 
         mounts=[{
             "type": "bind",

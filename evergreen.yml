@@ -13,10 +13,6 @@ tasks:
       working_dir: src
       params:
         script: |
-          podman pull docker.io/redhat/ubi8:8.10-1184 
-          systemctl --user enable podman.socket
-          systemctl --user start podman.socket
-          systemctl --user status podman.socket
           /opt/mongodbtoolchain/v4/bin/python3 -m virtualenv venv
           source ./venv/bin/activate
           ./venv/bin/python3 -m pip install podman

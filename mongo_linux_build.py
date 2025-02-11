@@ -4,6 +4,19 @@ import sys
 import platform
 import locale
 import podman
+import subprocess
+
+docker_image = 'redhat/ubi8:8.10-1184'
+
+podman_cmds = [
+    f"sudo podman pull docker.io/{docker_image}",
+    "sudo systemctl --user enable podman.socket",
+    "sudo systemctl --user start podman.socket",
+    "sudo systemctl --user status podman.socket",
+]
+
+for cmd in podman_cmds:
+    subprocess.run(cmd.split(' '))
 
 client = podman.from_env()
 try:

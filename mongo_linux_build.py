@@ -20,7 +20,7 @@ for cmd in podman_cmds:
 
 client = podman.from_env()
 try:
-    container = client.containers.get("bazel_build")
+    container = client.containers.get("bazel_build", base_url="unix:///run/user/0/podman/podman.sock" )
 except:
     pass
 else:

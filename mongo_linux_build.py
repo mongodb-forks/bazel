@@ -30,7 +30,7 @@ elif reported_arch == "ppc64le":
     arch = "ppc64le"
 
 container = client.containers.run(
-        image = "redhat/ubi8:latest", 
+        image = "redhat/ubi8:8.10-1184", 
         name="bazel_build", 
         volumes={
             os.getcwd(): {

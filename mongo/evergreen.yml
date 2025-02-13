@@ -9,7 +9,7 @@ functions:
       params:
         aws_key: ${aws_key}
         aws_secret: ${aws_secret}
-        local_file: src/mongo_bazel
+        local_file: src/mongo_bazel${ext|}
         remote_file: bazel_binary_patch_builds/${version_id}/${build_variant}/bazel${ext|}
         bucket: mdb-build-public 
         permissions: public-read
@@ -77,7 +77,7 @@ tasks:
       params:
         aws_key: ${aws_key}
         aws_secret: ${aws_secret}
-        local_file: src/mongo_bazel
+        local_file: src/mongo_bazel${ext|}
         remote_file: bazel_binary_waterfall_builds/${version_id}/${build_variant}/bazel${ext|}
         bucket: mdb-build-public 
         permissions: public-read
@@ -152,4 +152,3 @@ buildvariants:
     bazel_url: https://mdb-build-public.s3.amazonaws.com/bazelisk-binaries/v1.19.0/bazelisk-darwin-amd64
   tasks:
   - name: build_macos
-  

@@ -152,3 +152,4 @@ buildvariants:
     bazel_url: https://mdb-build-public.s3.amazonaws.com/bazelisk-binaries/v1.19.0/bazelisk-darwin-amd64
   tasks:
   - name: build_macos
+  

@@ -1,8 +1,28 @@
+parameters:
+  - key: version
+    value: "7.5.0"
+    description: bazel version
+
 functions:
   "fetch source" :
     - command: git.get_project
       params:
         directory: src
+
+  "update bazel version expansions" :
+    - command: subprocess.exec
+      display_name: "build"
+      type: test
+      params:
+        binary: bash
+        working_dir: src
+        args:
+          - "mongo/update_expansions.sh"
+          - "${version}"
+    - command: expansions.update
+      params:
+        file: src/bazel_expansions.yml
+
   "upload binary":
     - command: s3.put
       display_name: "upload binary"
@@ -10,16 +30,28 @@ functions:
         aws_key: ${aws_key}
         aws_secret: ${aws_secret}
         local_file: src/mongo_bazel${ext|}
-        remote_file: bazel_binary_patch_builds/${version_id}/${build_variant}/bazel${ext|}
+        remote_file: bazel_binary_patch_builds/${version_id}/${bazel_version}/${bazel_file_name}
         bucket: mdb-build-public 
         permissions: public-read
         content_type: application/octet-stream
         display_name: Bazel Binary
+    - command: s3.put
+      display_name: "upload binary"
+      params:
+        aws_key: ${aws_key}
+        aws_secret: ${aws_secret}
+        local_file: src/mongo_bazel${ext|}.sha256
+        remote_file: bazel_binary_patch_builds/${version_id}/${bazel_version}/${bazel_file_name}.sha256
+        bucket: mdb-build-public 
+        permissions: public-read
+        content_type: text/plain
+        display_name: Bazel Binary SHA sig
   
 tasks:
 - name: build_linux
   commands:
     - func: "fetch source"
+    - func: "update bazel version expansions"
     - command: subprocess.exec
       display_name: "build"
       type: test
@@ -29,11 +61,13 @@ tasks:
         args:
           - "mongo/build_linux.sh"
           - "${bazel_url}"
+          - "${bazel_version}"
     - func: "upload binary"
 
 - name: build_win32
   commands:
     - func: "fetch source"
+    - func: "update bazel version expansions"
     - command: subprocess.exec
       display_name: "get msys"
       params:
@@ -53,11 +87,13 @@ tasks:
         args:
           - "mongo/build_win32.sh"
           - "${bazel_url}" 
+          - "${bazel_version}"
     - func: "upload binary"
 
 - name: build_macos
   commands:
     - func: "fetch source"
+    - func: "update bazel version expansions"
     - command: subprocess.exec
       display_name: "build"
       type: test
@@ -67,6 +103,7 @@ tasks:
         args:
           - "mongo/build_macos.sh"
           - "${bazel_url}"
+          - "${bazel_version}"
     - func: "upload binary"
 
 - name: push
@@ -78,7 +115,7 @@ tasks:
         aws_key: ${aws_key}
         aws_secret: ${aws_secret}
         local_file: src/mongo_bazel${ext|}
-        remote_file: bazel_binary_waterfall_builds/${version_id}/${build_variant}/bazel${ext|}
+        remote_file: bazel_binary_waterfall_builds/${revision}/${bazel_version}/${bazel_file_name}
         bucket: mdb-build-public 
         permissions: public-read
         content_type: application/octet-stream

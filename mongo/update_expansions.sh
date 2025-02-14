@@ -6,9 +6,9 @@ set -o verbose
 if [[ "$OSTYPE" == "linux"* ]]; then
   os="linux"
 elif [[ "$OSTYPE" == "darwin"* ]]; then
-  os="macos"
+  os="darwin"
 else
-  os="unknown"
+  os="windows"
 fi
 
 ARCH=$(uname -m)

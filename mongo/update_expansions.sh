@@ -26,7 +26,7 @@ bazel_short_git=$(git rev-parse --short HEAD)
 
 bazel_version=$1-mongo_$bazel_short_git
 
-bazel_file_name=bazel-$bazel_version-$os-$ARCH
+bazel_file_name=bazel-$bazel_version-$os-${ARCH}${1}
 
 echo "bazel_version: $bazel_version" > bazel_expansions.yml
 echo "bazel_file_name: $bazel_file_name" >> bazel_expansions.yml

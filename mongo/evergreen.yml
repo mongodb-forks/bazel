@@ -19,6 +19,7 @@ functions:
         args:
           - "mongo/update_expansions.sh"
           - "${version}"
+          - "${ext}"
     - command: expansions.update
       params:
         file: src/bazel_expansions.yml

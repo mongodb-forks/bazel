@@ -17,4 +17,3 @@ else
   export PATH=$PWD/msys/msys64/usr/bin:$PATH
   msys/msys64/usr/bin/bash.exe mongo/build_windows.sh "$1" "$2" "$3"
 fi
-

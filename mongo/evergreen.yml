@@ -4,12 +4,12 @@ parameters:
     description: bazel version
 
 functions:
-  "fetch source" :
+  "fetch source":
     - command: git.get_project
       params:
         directory: src
 
-  "update bazel version expansions" :
+  "update bazel version expansions":
     - command: subprocess.exec
       display_name: "build"
       type: test
@@ -49,7 +49,6 @@ functions:
         display_name: Bazel Binary SHA sig
   
 tasks:
-
 - name: build
   commands:
     - func: "fetch source"
@@ -93,7 +92,6 @@ tasks:
         local_file: ${bazel_file_name}.sha256
         remote_file: bazel_binary_patch_builds/${version_id}/${bazel_version}/${bazel_file_name}.sha256
         bucket: mdb-build-public 
-
     - command: subprocess.exec
       display_name: "build"
       type: test

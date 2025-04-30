@@ -253,6 +253,7 @@ class HttpConnector {
           throw new IOException(describeHttpResponse(connection));
         }
       } catch (UnrecoverableHttpException | FileNotFoundException e) {
+        logHttpErrorDetails(connection);
         throw e;
       } catch (IllegalArgumentException e) {
         logHttpErrorDetails(connection);

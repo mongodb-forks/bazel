@@ -41,6 +41,10 @@ import java.util.Locale;
 import java.util.Map;
 import javax.annotation.Nullable;
 import javax.annotation.WillClose;
+import java.io.ByteArrayOutputStream;
+import java.util.Map;
+import java.util.List;
+
 
 /**
  * Class for establishing connections to HTTP servers for downloading files.
@@ -106,6 +110,34 @@ class HttpConnector {
     return Math.round(unscaled * timeoutScaling);
   }
 
+
+  private void logHttpErrorDetails(HttpURLConnection connection) {
+    try {
+      System.err.println("=== Response Headers from: " + connection.getURL() + " ===");
+      Map<String, List<String>> headers = connection.getHeaderFields();
+      for (Map.Entry<String, List<String>> entry : headers.entrySet()) {
+        String key = entry.getKey();
+        String headerName = key != null ? key : "(status)";
+        System.err.println(headerName + ": " + String.join(", ", entry.getValue()));
+      }
+
+      InputStream errorStream = connection.getErrorStream();
+      if (errorStream != null) {
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        byte[] data = new byte[4096];
+        int n;
+        while ((n = errorStream.read(data, 0, data.length)) != -1) {
+          buffer.write(data, 0, n);
+        }
+        String errorBody = buffer.toString("UTF-8");
+        System.err.println("--- Error Body ---");
+        System.err.println(errorBody);
+      }
+    } catch (IOException logError) {
+      System.err.println("Failed to log error response: " + logError.getMessage());
+    }
+  }
+
   URLConnection connect(
       URL originalUrl, Function<URL, ImmutableMap<String, List<String>>> requestHeaders)
       throws IOException {
@@ -160,9 +192,11 @@ class HttpConnector {
         } catch (UnknownHostException e) {
           String message = "Unknown host: " + e.getMessage();
           eventHandler.handle(Event.progress(message));
+          logHttpErrorDetails(connection);
           throw new UnrecoverableHttpException(message);
         } catch (IllegalArgumentException e) {
           // This will happen if the user does something like specify a port greater than 2^16-1.
+          logHttpErrorDetails(connection);
           throw new UnrecoverableHttpException(e.getMessage());
         } catch (IOException e) {
           // Some HTTP error status codes are converted to IOExceptions, which we can only
@@ -180,6 +214,7 @@ class HttpConnector {
           readAllBytesAndClose(connection.getInputStream());
           if (++redirects == MAX_REDIRECTS) {
             eventHandler.handle(Event.progress("Redirect loop detected in " + originalUrl));
+            logHttpErrorDetails(connection);
             throw new UnrecoverableHttpException("Redirect loop detected");
           }
           url = HttpUtils.getLocation(connection);
@@ -211,6 +246,7 @@ class HttpConnector {
             // distinguish between the resource being not found and the server being unavailable.
             throw new FileNotFoundException(describeHttpResponse(connection));
           }
+          logHttpErrorDetails(connection);
           throw new UnrecoverableHttpException(describeHttpResponse(connection));
         } else {
           // However we will retry on some 5xx errors, particularly 500, 502 and 503.
@@ -219,6 +255,7 @@ class HttpConnector {
       } catch (UnrecoverableHttpException | FileNotFoundException e) {
         throw e;
       } catch (IllegalArgumentException e) {
+        logHttpErrorDetails(connection);
         throw new UnrecoverableHttpException(e.getMessage());
       } catch (IOException e) {
         if (connection != null) {
@@ -227,6 +264,7 @@ class HttpConnector {
           // reused. This is particularly important if multiple threads end up establishing
           // connections to multiple mirrors simultaneously for a large file. We don't want to
           // download that large file twice.
+          logHttpErrorDetails(connection);
           connection.disconnect();
         }
         // We don't respect the Retry-After header (RFC7231 § 7.1.3) because it's rarely used and

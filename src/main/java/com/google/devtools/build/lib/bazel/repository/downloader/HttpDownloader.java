@@ -40,7 +40,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Semaphore;
-
+import java.io.StringWriter;
+import java.io.PrintWriter;
 /**
  * HTTP implementation of {@link Downloader}.
  *
@@ -96,6 +97,8 @@ public class HttpDownloader implements Downloader {
 
       try (HttpStream payload = multiplexer.connect(url, checksum, headers, credentials, type);
           OutputStream out = destination.getOutputStream()) {
+
+
         try {
           ByteStreams.copy(payload, out);
         } catch (SocketTimeoutException e) {
@@ -109,10 +112,18 @@ public class HttpDownloader implements Downloader {
       } catch (InterruptedIOException e) {
         throw new InterruptedException(e.getMessage());
       } catch (IOException e) {
+
         if (ioExceptions.isEmpty()) {
           ioExceptions = new ArrayList<>(1);
         }
         ioExceptions.add(e);
+
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        e.printStackTrace(pw);
+        String stackTrace = sw.toString();
+        System.out.println(stackTrace);
+        
         eventHandler.handle(
             Event.warn("Download from " + url + " failed: " + e.getClass() + " " + e.getMessage()));
         continue;

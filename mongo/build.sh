@@ -3,8 +3,10 @@
 set -o errexit
 set -o verbose
 
-if [[ "$OSTYPE" == "linux"* ]]; then
-  bash mongo/build_linux.sh "$1" "$2" "$3"
+if [[ "$4" == "ubi7" ]]; then
+  bash mongo/container_build_rhel7.sh
+elif [[ "$OSTYPE" == "linux"* ]]; then
+  bash mongo/build_linux.sh "$1" "$2" "$3" "$4"
 elif [[ "$OSTYPE" == "darwin"* ]]; then
   bash mongo/build_macos.sh "$1" "$2" "$3"
 else

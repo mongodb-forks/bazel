@@ -5,7 +5,7 @@ set -o verbose
 
 if [[ "$OSTYPE" == "linux"* ]]; then
   os="linux"
-  if [[ "$3" == "rhel7" ]]; then
+  if [[ "$1" == "rhel7" ]]; then
     os="rhel7"
   fi
 elif [[ "$OSTYPE" == "darwin"* ]]; then
@@ -27,9 +27,9 @@ fi
 
 bazel_short_git=$(git rev-parse --short HEAD)
 
-bazel_version=$1-mongo_$bazel_short_git
+bazel_version=$2-mongo_$bazel_short_git
 
-bazel_file_name=bazel-$bazel_version-$os-${ARCH}${2}-test
+bazel_file_name=bazel-$bazel_version-$os-${ARCH}${3}-test
 
 echo "bazel_version: $bazel_version" > bazel_expansions.yml
 echo "bazel_file_name: $bazel_file_name" >> bazel_expansions.yml

@@ -149,7 +149,7 @@ buildvariants:
 - name: rhel7_x86_64
   display_name: RHEL7 x86_64
   run_on:
-  - rhel7.9-large
+  - ubuntu2204-large
   expansions:
     bazel_url: https://github.com/bazelbuild/bazel/releases/download/7.5.0/bazel-7.5.0-linux-x86_64
     ubi_version: ubi7

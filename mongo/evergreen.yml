@@ -72,7 +72,7 @@ tasks:
     - func: "upload binary"
 
 - name: push
-  patchable: false
+  patchable: true
   depends_on: 
     - name: build
   commands:

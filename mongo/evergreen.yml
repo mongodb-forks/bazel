@@ -18,7 +18,7 @@ functions:
         working_dir: src
         args:
           - "mongo/update_expansions.sh"
-          - "${build_os}"
+          - "${build_os|default}"
           - "${version}"
           - "${ext}"
     - command: expansions.update

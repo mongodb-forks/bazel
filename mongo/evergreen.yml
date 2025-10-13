@@ -18,6 +18,7 @@ functions:
         working_dir: src
         args:
           - "mongo/update_expansions.sh"
+          - "${build_os|default}"
           - "${version}"
           - "${ext}"
     - command: expansions.update
@@ -67,6 +68,7 @@ tasks:
           - "${bazel_url}"
           - "${bazel_version}"
           - "${bazel_file_name}"
+          - "${ubi_version}"
     - func: "upload binary"
 
 - name: push
@@ -140,6 +142,18 @@ buildvariants:
   - rhel8.8-arm64-large
   expansions:
     bazel_url: https://github.com/bazelbuild/bazel/releases/download/7.5.0/bazel-7.5.0-linux-arm64
+  tasks:
+  - name: build
+  - name: push
+
+- name: rhel7_x86_64
+  display_name: RHEL7 x86_64
+  run_on:
+  - ubuntu2204-large
+  expansions:
+    bazel_url: https://github.com/bazelbuild/bazel/releases/download/7.5.0/bazel-7.5.0-linux-x86_64
+    ubi_version: ubi7
+    build_os: rhel7
   tasks:
   - name: build
   - name: push

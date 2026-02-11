@@ -1,6 +1,6 @@
 parameters:
   - key: version
-    value: "8.3.0"
+    value: "8.2.1"
     description: bazel version
 
 functions:
@@ -131,7 +131,7 @@ buildvariants:
   run_on:
   - rhel8.8-large
   expansions:
-    bazel_url: https://github.com/bazelbuild/bazel/releases/download/8.3.0/bazel-8.3.0-linux-x86_64
+    bazel_url: https://github.com/bazelbuild/bazel/releases/download/8.2.1/bazel-8.2.1-linux-x86_64
   tasks:
   - name: build
   - name: push
@@ -141,7 +141,7 @@ buildvariants:
   run_on:
   - rhel8.8-arm64-large
   expansions:
-    bazel_url: https://github.com/bazelbuild/bazel/releases/download/8.3.0/bazel-8.3.0-linux-arm64
+    bazel_url: https://github.com/bazelbuild/bazel/releases/download/8.2.1/bazel-8.2.1-linux-arm64
   tasks:
   - name: build
   - name: push
@@ -151,7 +151,7 @@ buildvariants:
   run_on:
   - ubuntu2204-large
   expansions:
-    bazel_url: https://github.com/bazelbuild/bazel/releases/download/8.3.0/bazel-8.3.0-linux-x86_64
+    bazel_url: https://github.com/bazelbuild/bazel/releases/download/8.2.1/bazel-8.2.1-linux-x86_64
     ubi_version: ubi7
     build_os: rhel7
   tasks:
@@ -163,7 +163,7 @@ buildvariants:
   run_on:
   - rhel83-zseries-large
   expansions:
-    bazel_url: https://mdb-build-public.s3.amazonaws.com/bazel-binaries/8.3.0/bazel-8.3.0-linux-s390x
+    bazel_url: https://mdb-build-public.s3.amazonaws.com/bazel-binaries/8.2.1/bazel-8.2.1-linux-s390x
   tasks:
   - name: build
   - name: push
@@ -173,7 +173,7 @@ buildvariants:
   run_on:
   - rhel81-power8-large
   expansions:
-    bazel_url: https://mdb-build-public.s3.amazonaws.com/bazel-binaries/8.3.0/bazel-8.3.0-linux-ppc64le
+    bazel_url: https://mdb-build-public.s3.amazonaws.com/bazel-binaries/8.2.1/bazel-8.2.1-linux-ppc64le
   tasks:
   - name: build
   - name: push

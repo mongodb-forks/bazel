@@ -24,12 +24,19 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.locks.ReentrantLock;
 
 /** A container for tokens which is used for rate limiting. */
 @ThreadSafe
 public class TokenBucket<T> implements Closeable {
   private final ConcurrentLinkedDeque<T> tokens;
   private final BehaviorSubject<T> tokenBehaviorSubject;
+  // Guards against concurrent BehaviorSubject.onNext() and .subscribe() calls. BehaviorSubject
+  // uses synchronized internally (in emitFirst/emitNext), which pins virtual threads on JDK 21+.
+  // When onNext() (holding the subject's write lock) races with subscribe() (holding a
+  // synchronized monitor and waiting for the read lock), virtual thread pinning turns this into a
+  // deadlock. ReentrantLock does not pin virtual threads, so serializing access here prevents it.
+  private final ReentrantLock subjectLock = new ReentrantLock();
 
   public TokenBucket() {
     this(ImmutableList.of());
@@ -47,7 +54,12 @@ public class TokenBucket<T> implements Closeable {
   /** Add a token to the bucket. */
   public void addToken(T token) {
     tokens.addLast(token);
-    tokenBehaviorSubject.onNext(token);
+    subjectLock.lock();
+    try {
+      tokenBehaviorSubject.onNext(token);
+    } finally {
+      subjectLock.unlock();
+    }
   }
 
   /** Returns current number of tokens in the bucket. */
@@ -60,7 +72,9 @@ public class TokenBucket<T> implements Closeable {
    */
   public Single<T> acquireToken() {
     return Single.create(
-        downstream ->
+        downstream -> {
+          subjectLock.lock();
+          try {
             tokenBehaviorSubject.subscribe(
                 new Observer<T>() {
                   Disposable upstream;
@@ -92,7 +106,11 @@ public class TokenBucket<T> implements Closeable {
                       downstream.onError(new IllegalStateException("closed"));
                     }
                   }
-                }));
+                });
+          } finally {
+            subjectLock.unlock();
+          }
+        });
   }
 
   /**
@@ -104,6 +122,11 @@ public class TokenBucket<T> implements Closeable {
   @Override
   public void close() throws IOException {
     tokens.clear();
-    tokenBehaviorSubject.onComplete();
+    subjectLock.lock();
+    try {
+      tokenBehaviorSubject.onComplete();
+    } finally {
+      subjectLock.unlock();
+    }
   }
 }

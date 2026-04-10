@@ -89,6 +89,12 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   private static final String QUALIFIER_CHECKSUM_SRI = "checksum.sri";
   private static final String QUALIFIER_CANONICAL_ID = "bazel.canonical_id";
 
+  // When this environment variable is set to "1" in the client environment,
+  // the download order is reversed: the local (HTTP) downloader is tried first,
+  // and the remote asset API is only used as a fallback.
+  @VisibleForTesting
+  static final String REVERSE_REMOTE_API_ATTEMPT_ORDER_ENV = "REVERSE_REMOTE_API_ATTEMPT_ORDER";
+
   // The `:` character is not permitted in an HTTP header name. So, we use it to
   // delimit the qualifier prefix which denotes an HTTP header qualifer from the
   // header name itself.
@@ -161,6 +167,33 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
           context);
       return;
     }
+    
+    boolean localFirst =
+        fallbackDownloader != null
+            && "1".equals(clientEnv.get(REVERSE_REMOTE_API_ATTEMPT_ORDER_ENV));
+
+    if (localFirst) {
+      try {
+        fallbackDownloader.download(
+            urls,
+            headers,
+            credentials,
+            checksum,
+            canonicalId,
+            destination,
+            eventHandler,
+            clientEnv,
+            type);
+        return;
+      } catch (IOException e) {
+        eventHandler.handle(
+            Event.warn(
+                "Local download failed: "
+                    + e.getMessage()
+                    + ", trying remote downloader"));
+      }
+    }
+
     RequestMetadata metadata =
         TracingMetadataUtils.buildMetadata(
             buildRequestId,
@@ -215,11 +248,11 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
 
     } catch (StatusRuntimeException | IOException e) {
       eventHandler.post(new FetchEvent(eventUri, FetchId.Downloader.GRPC, /* success= */ false));
-      if (!remoteDownloaderLocalFallback) {
+      if (localFirst || !remoteDownloaderLocalFallback) {
         if (e instanceof StatusRuntimeException) {
           throw new IOException(e);
         }
-        throw e;
+        throw (IOException) e;
       }
 
       Optional<String> url = urls.stream()
@@ -237,7 +270,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
         eventHandler.handle(
             Event.warn("Remote Cache: " + Utils.grpcAwareErrorMessage(e, verboseFailures)));
       }
-      
+
       fallbackDownloader.download(
           urls,
           headers,

@@ -79,6 +79,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
@@ -178,11 +179,19 @@ public class GrpcRemoteDownloaderTest {
   private static byte[] downloadBlob(
       GrpcRemoteDownloader downloader, URL url, Optional<Checksum> checksum)
       throws IOException, InterruptedException {
+    return downloadBlob(downloader, url, checksum, ImmutableMap.of());
+  }
+
+  private static byte[] downloadBlob(
+      GrpcRemoteDownloader downloader,
+      URL url,
+      Optional<Checksum> checksum,
+      Map<String, String> clientEnv)
+      throws IOException, InterruptedException {
     final List<URL> urls = ImmutableList.of(url);
 
     final String canonicalId = "";
     final ExtendedEventHandler eventHandler = mock(ExtendedEventHandler.class);
-    final Map<String, String> clientEnv = ImmutableMap.of();
 
     Scratch scratch = new Scratch();
     final Path destination = scratch.resolve("output file path");
@@ -418,5 +427,164 @@ public class GrpcRemoteDownloaderTest {
                 .addQualifiers(
                     Qualifier.newBuilder().setName("bazel.canonical_id").setValue("canonical ID"))
                 .build());
+  }
+
+  @Test
+  public void testLocalFirstEnvVar_localSucceeds_remoteNotCalled() throws Exception {
+    // Remote service that should NOT be called.
+    final AtomicBoolean remoteCalled = new AtomicBoolean(false);
+    serviceRegistry.addService(
+        new FetchImplBase() {
+          @Override
+          public void fetchBlob(
+              FetchBlobRequest request, StreamObserver<FetchBlobResponse> responseObserver) {
+            remoteCalled.set(true);
+            responseObserver.onError(new IOException("should not be called"));
+          }
+        });
+
+    final byte[] content = "local content".getBytes(UTF_8);
+    final RemoteCacheClient cacheClient = new InMemoryCacheClient();
+    Downloader fallbackDownloader = mock(Downloader.class);
+    doAnswer(
+            invocation -> {
+              Path output = invocation.getArgument(5);
+              FileSystemUtils.writeContent(output, content);
+              return null;
+            })
+        .when(fallbackDownloader)
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any());
+    final GrpcRemoteDownloader downloader = newDownloader(cacheClient, fallbackDownloader);
+
+    Map<String, String> clientEnv =
+        ImmutableMap.of(GrpcRemoteDownloader.REVERSE_REMOTE_API_ATTEMPT_ORDER_ENV, "1");
+
+    final byte[] downloaded =
+        downloadBlob(
+            downloader,
+            new URL("http://example.com/content.txt"),
+            Optional.<Checksum>empty(),
+            clientEnv);
+
+    assertThat(downloaded).isEqualTo(content);
+    assertThat(remoteCalled.get()).isFalse();
+  }
+
+  @Test
+  public void testLocalFirstEnvVar_localFails_remoteFallback() throws Exception {
+    final byte[] content = "remote content".getBytes(UTF_8);
+    final Digest contentDigest = DIGEST_UTIL.compute(content);
+
+    serviceRegistry.addService(
+        new FetchImplBase() {
+          @Override
+          public void fetchBlob(
+              FetchBlobRequest request, StreamObserver<FetchBlobResponse> responseObserver) {
+            responseObserver.onNext(
+                FetchBlobResponse.newBuilder().setBlobDigest(contentDigest).build());
+            responseObserver.onCompleted();
+          }
+        });
+
+    final RemoteCacheClient cacheClient = new InMemoryCacheClient();
+    getFromFuture(cacheClient.uploadBlob(context, contentDigest, ByteString.copyFrom(content)));
+
+    Downloader fallbackDownloader = mock(Downloader.class);
+    doAnswer(
+            invocation -> {
+              throw new IOException("local download failed");
+            })
+        .when(fallbackDownloader)
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any());
+    final GrpcRemoteDownloader downloader = newDownloader(cacheClient, fallbackDownloader);
+
+    Map<String, String> clientEnv =
+        ImmutableMap.of(GrpcRemoteDownloader.REVERSE_REMOTE_API_ATTEMPT_ORDER_ENV, "1");
+
+    final byte[] downloaded =
+        downloadBlob(
+            downloader,
+            new URL("http://example.com/content.txt"),
+            Optional.<Checksum>empty(),
+            clientEnv);
+
+    assertThat(downloaded).isEqualTo(content);
+  }
+
+  @Test
+  public void testLocalFirstEnvVar_bothFail_throwsException() throws Exception {
+    serviceRegistry.addService(
+        new FetchImplBase() {
+          @Override
+          public void fetchBlob(
+              FetchBlobRequest request, StreamObserver<FetchBlobResponse> responseObserver) {
+            responseObserver.onError(new IOException("remote failed"));
+          }
+        });
+
+    final RemoteCacheClient cacheClient = new InMemoryCacheClient();
+    Downloader fallbackDownloader = mock(Downloader.class);
+    doAnswer(
+            invocation -> {
+              throw new IOException("local download failed");
+            })
+        .when(fallbackDownloader)
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any());
+    final GrpcRemoteDownloader downloader = newDownloader(cacheClient, fallbackDownloader);
+
+    Map<String, String> clientEnv =
+        ImmutableMap.of(GrpcRemoteDownloader.REVERSE_REMOTE_API_ATTEMPT_ORDER_ENV, "1");
+
+    assertThrows(
+        IOException.class,
+        () ->
+            downloadBlob(
+                downloader,
+                new URL("http://example.com/content.txt"),
+                Optional.<Checksum>empty(),
+                clientEnv));
+  }
+
+  @Test
+  public void testLocalFirstEnvVar_notSet_remoteCalledFirst() throws Exception {
+    final byte[] content = "remote content".getBytes(UTF_8);
+    final Digest contentDigest = DIGEST_UTIL.compute(content);
+
+    serviceRegistry.addService(
+        new FetchImplBase() {
+          @Override
+          public void fetchBlob(
+              FetchBlobRequest request, StreamObserver<FetchBlobResponse> responseObserver) {
+            responseObserver.onNext(
+                FetchBlobResponse.newBuilder().setBlobDigest(contentDigest).build());
+            responseObserver.onCompleted();
+          }
+        });
+
+    final RemoteCacheClient cacheClient = new InMemoryCacheClient();
+    getFromFuture(cacheClient.uploadBlob(context, contentDigest, ByteString.copyFrom(content)));
+
+    // Fallback that should NOT be called since remote succeeds.
+    final AtomicBoolean localCalled = new AtomicBoolean(false);
+    Downloader fallbackDownloader = mock(Downloader.class);
+    doAnswer(
+            invocation -> {
+              localCalled.set(true);
+              return null;
+            })
+        .when(fallbackDownloader)
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any());
+    final GrpcRemoteDownloader downloader = newDownloader(cacheClient, fallbackDownloader);
+
+    // Empty clientEnv — env var not set.
+    final byte[] downloaded =
+        downloadBlob(
+            downloader,
+            new URL("http://example.com/content.txt"),
+            Optional.<Checksum>empty(),
+            ImmutableMap.of());
+
+    assertThat(downloaded).isEqualTo(content);
+    assertThat(localCalled.get()).isFalse();
   }
 }

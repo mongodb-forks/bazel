@@ -169,12 +169,12 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     }
     
     boolean localFirst =
-        fallbackDownloader != null
+        httpDownloader != null
             && "1".equals(clientEnv.get(REVERSE_REMOTE_API_ATTEMPT_ORDER_ENV));
 
     if (localFirst) {
       try {
-        fallbackDownloader.download(
+        httpDownloader.download(
             urls,
             headers,
             credentials,
@@ -272,7 +272,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
             Event.warn("Remote Cache: " + Utils.grpcAwareErrorMessage(e, verboseFailures)));
       }
 
-      fallbackDownloader.download(
+      httpDownloader.download(
           urls,
           headers,
           credentials,

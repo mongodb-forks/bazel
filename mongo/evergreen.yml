@@ -1,6 +1,6 @@
 parameters:
   - key: version
-    value: "8.4.0"
+    value: "8.7.0"
     description: bazel version
 
 functions:
@@ -129,7 +129,7 @@ buildvariants:
   run_on:
   - rhel8.8-large
   expansions:
-    bazel_url: https://github.com/bazelbuild/bazel/releases/download/8.4.0/bazel-8.4.0-linux-x86_64
+    bazel_url: https://github.com/bazelbuild/bazel/releases/download/8.7.0/bazel-8.7.0-linux-x86_64
   tasks:
   - name: build
   - name: push
@@ -139,7 +139,7 @@ buildvariants:
   run_on:
   - rhel8.8-arm64-large
   expansions:
-    bazel_url: https://github.com/bazelbuild/bazel/releases/download/8.4.0/bazel-8.4.0-linux-arm64
+    bazel_url: https://github.com/bazelbuild/bazel/releases/download/8.7.0/bazel-8.7.0-linux-arm64
   tasks:
   - name: build
   - name: push

@@ -172,7 +172,16 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
         httpDownloader != null
             && "1".equals(clientEnv.get(REVERSE_REMOTE_API_ATTEMPT_ORDER_ENV));
 
-    if (localFirst) {
+    boolean useFallbackFirst =
+        fallbackDownloader != null
+            && urls.stream()
+                .map(URL::toString)
+                .anyMatch(
+                    urlStr ->
+                        options.remoteDownloadUseLocalFallbackUrls.stream()
+                            .anyMatch(urlStr::startsWith));
+
+    if (localFirst || useFallbackFirst) {
       try {
         httpDownloader.download(
             urls,

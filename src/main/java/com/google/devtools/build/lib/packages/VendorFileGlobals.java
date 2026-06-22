@@ -18,6 +18,7 @@ import com.google.devtools.build.docgen.annot.GlobalMethods;
 import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import java.util.Optional;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -44,7 +45,7 @@ public final class VendorFileGlobals {
   public void ignore(Tuple args, StarlarkThread thread) throws EvalException {
     VendorThreadContext context = VendorThreadContext.fromOrFail(thread, "ignore()");
     for (String repoName : Sequence.cast(args, String.class, "args")) {
-      context.addIgnoredRepo(getRepositoryName(repoName));
+      getRepositoryName(repoName).ifPresent(context::addIgnoredRepo);
     }
   }
 
@@ -60,18 +61,26 @@ public final class VendorFileGlobals {
   public void pin(Tuple args, StarlarkThread thread) throws EvalException {
     VendorThreadContext context = VendorThreadContext.fromOrFail(thread, "pin()");
     for (String repoName : Sequence.cast(args, String.class, "args")) {
-      context.addPinnedRepo(getRepositoryName(repoName));
+      getRepositoryName(repoName).ifPresent(context::addPinnedRepo);
     }
   }
 
-  private RepositoryName getRepositoryName(String repoName) throws EvalException {
+  private Optional<RepositoryName> getRepositoryName(String repoName) throws EvalException {
     if (!repoName.startsWith("@@")) {
       throw Starlark.errorf("the canonical repository name must start with `@@`");
     }
     try {
       repoName = repoName.substring(2);
-      return RepositoryName.create(repoName);
+      return Optional.of(RepositoryName.create(repoName));
     } catch (LabelSyntaxException e) {
+      // Bazel 7 and Bazel 8 run side-by-side in MMS, so a single VENDOR.bazel
+      // file may contain canonical repo names written in both the Bazel-7 (`~`)
+      // and Bazel-8 (`+`) styles. The current validator only accepts the `+`
+      // form; tolerate `~`-style entries by silently dropping them so the file
+      // still parses for whichever Bazel version is running.
+      if (repoName.contains("~")) {
+        return Optional.empty();
+      }
       throw Starlark.errorf("Invalid canonical repo name: %s", e.getMessage());
     }
   }

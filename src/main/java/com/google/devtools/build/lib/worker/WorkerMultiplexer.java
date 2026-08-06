@@ -98,6 +98,9 @@ public class WorkerMultiplexer {
   /** For testing only, allow a way to fake subprocesses. */
   private SubprocessFactory subprocessFactory;
 
+  /** Optional launcher used to enter a persistent container before starting the worker. */
+  @Nullable private final WorkerProcessLauncher processLauncher;
+
   /** A separate thread that sends requests. */
   private Thread requestSender;
 
@@ -118,8 +121,14 @@ public class WorkerMultiplexer {
   private Thread shutdownHook;
 
   WorkerMultiplexer(Path logFile, WorkerKey workerKey) {
+    this(logFile, workerKey, /* processLauncher= */ null);
+  }
+
+  WorkerMultiplexer(
+      Path logFile, WorkerKey workerKey, @Nullable WorkerProcessLauncher processLauncher) {
     this.logFile = logFile;
     this.workerKey = workerKey;
+    this.processLauncher = processLauncher;
   }
 
   /** Sets or clears the reporter for outputting verbose info. */
@@ -186,15 +195,23 @@ public class WorkerMultiplexer {
         newArgs.set(0, new File(workDir.getPathFile(), newArgs.get(0)).getAbsolutePath());
         args = ImmutableList.copyOf(newArgs);
       }
-      SubprocessBuilder processBuilder =
-          subprocessFactory != null
-              ? new SubprocessBuilder(subprocessFactory)
-              : new SubprocessBuilder();
-      processBuilder.setArgv(args);
-      processBuilder.setWorkingDirectory(workDir.getPathFile());
-      processBuilder.setStderr(logFile.getPathFile());
-      processBuilder.setEnv(workerKey.getEnv());
-      this.process = processBuilder.start();
+      if (subprocessFactory != null) {
+        SubprocessBuilder processBuilder = new SubprocessBuilder(subprocessFactory);
+        processBuilder.setArgv(args);
+        processBuilder.setWorkingDirectory(workDir.getPathFile());
+        processBuilder.setStderr(logFile.getPathFile());
+        processBuilder.setEnv(workerKey.getEnv());
+        this.process = processBuilder.start();
+      } else if (processLauncher != null) {
+        this.process = processLauncher.start(args, workDir, logFile, workerKey.getEnv());
+      } else {
+        SubprocessBuilder processBuilder = new SubprocessBuilder();
+        processBuilder.setArgv(args);
+        processBuilder.setWorkingDirectory(workDir.getPathFile());
+        processBuilder.setStderr(logFile.getPathFile());
+        processBuilder.setEnv(workerKey.getEnv());
+        this.process = processBuilder.start();
+      }
       recordingStream = new RecordingInputStream(process.getInputStream());
       recordingStream.startRecording(4096);
       if (workerProtocol == null) {

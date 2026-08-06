@@ -68,16 +68,39 @@ public class WorkerParser {
   private final WorkerOptions workerOptions;
   private final LocalEnvProvider localEnvProvider;
   private final BinTools binTools;
+  private final boolean forceSandboxedWorkers;
 
   public WorkerParser(
       Path execRoot,
       WorkerOptions workerOptions,
       LocalEnvProvider localEnvProvider,
       BinTools binTools) {
+    this(
+        execRoot,
+        workerOptions,
+        localEnvProvider,
+        binTools,
+        /* forceSandboxedWorkers= */ false);
+  }
+
+  /**
+   * Creates a parser that can require worker execution in a sandbox regardless of the user option.
+   *
+   * <p>This is used by execution environments whose shared execroot is read-only to worker
+   * processes. Sandboxed workers place each request in a separate writable worker directory and
+   * copy declared outputs back after the response.
+   */
+  public WorkerParser(
+      Path execRoot,
+      WorkerOptions workerOptions,
+      LocalEnvProvider localEnvProvider,
+      BinTools binTools,
+      boolean forceSandboxedWorkers) {
     this.execRoot = execRoot;
     this.workerOptions = workerOptions;
     this.localEnvProvider = localEnvProvider;
     this.binTools = binTools;
+    this.forceSandboxedWorkers = forceSandboxedWorkers;
   }
 
   /**
@@ -112,7 +135,8 @@ public class WorkerParser {
             workerFiles,
             workerOptions,
             context.speculating(),
-            Spawns.getWorkerProtocolFormat(spawn));
+            Spawns.getWorkerProtocolFormat(spawn),
+            forceSandboxedWorkers);
     return new WorkerConfig(key, flagFiles);
   }
 
@@ -131,16 +155,44 @@ public class WorkerParser {
       WorkerOptions options,
       boolean dynamic,
       WorkerProtocolFormat protocolFormat) {
+    return createWorkerKey(
+        spawn,
+        workerArgs,
+        env,
+        execRoot,
+        workerFilesCombinedHash,
+        workerFiles,
+        options,
+        dynamic,
+        protocolFormat,
+        /* forceSandboxedWorkers= */ false);
+  }
+
+  /** Creates a worker key, optionally forcing the worker to use a writable sandbox. */
+  @VisibleForTesting
+  static WorkerKey createWorkerKey(
+      Spawn spawn,
+      ImmutableList<String> workerArgs,
+      ImmutableMap<String, String> env,
+      Path execRoot,
+      HashCode workerFilesCombinedHash,
+      SortedMap<PathFragment, byte[]> workerFiles,
+      WorkerOptions options,
+      boolean dynamic,
+      WorkerProtocolFormat protocolFormat,
+      boolean forceSandboxedWorkers) {
     boolean multiplex = options.workerMultiplex && Spawns.supportsMultiplexWorkers(spawn);
-    if (dynamic && !(Spawns.supportsMultiplexSandboxing(spawn) && options.multiplexSandboxing)) {
+    if ((dynamic || forceSandboxedWorkers)
+        && !(Spawns.supportsMultiplexSandboxing(spawn) && options.multiplexSandboxing)) {
       multiplex = false;
     }
     boolean sandboxed;
     if (multiplex) {
       sandboxed =
-          Spawns.supportsMultiplexSandboxing(spawn) && (options.multiplexSandboxing || dynamic);
+          Spawns.supportsMultiplexSandboxing(spawn)
+              && (options.multiplexSandboxing || dynamic || forceSandboxedWorkers);
     } else {
-      sandboxed = options.workerSandboxing || dynamic;
+      sandboxed = options.workerSandboxing || dynamic || forceSandboxedWorkers;
     }
     return new WorkerKey(
         workerArgs,

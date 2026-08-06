@@ -46,9 +46,18 @@ public class WorkerMultiplexerManager {
    * record how many {@code WorkerProxy} objects are talking to this {@code WorkerMultiplexer}.
    */
   public static synchronized WorkerMultiplexer getInstance(WorkerKey key, Path logFile) {
+    return getInstance(key, logFile, /* processLauncher= */ null);
+  }
+
+  /**
+   * Returns a multiplexer whose process is started through {@code processLauncher} when supplied.
+   * The launcher is fixed for a worker pool generation, so all proxies for one key share it.
+   */
+  public static synchronized WorkerMultiplexer getInstance(
+      WorkerKey key, Path logFile, @Nullable WorkerProcessLauncher processLauncher) {
     InstanceInfo instanceInfo =
         multiplexerInstance.computeIfAbsent(
-            key, k -> new InstanceInfo(new WorkerMultiplexer(logFile, k)));
+            key, k -> new InstanceInfo(new WorkerMultiplexer(logFile, k, processLauncher)));
     instanceInfo.increaseRefCount();
     return instanceInfo.getWorkerMultiplexer();
   }

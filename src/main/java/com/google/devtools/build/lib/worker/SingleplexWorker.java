@@ -46,6 +46,8 @@ class SingleplexWorker extends Worker {
 
   /** The execution root of the worker. */
   protected final Path workDir;
+  /** Optional launcher used to enter a persistent container before starting the worker. */
+  @Nullable private final WorkerProcessLauncher processLauncher;
   /**
    * Stream for recording the WorkResponse as it's read, so that it can be printed in the case of
    * parsing failures.
@@ -66,13 +68,31 @@ class SingleplexWorker extends Worker {
   protected Thread shutdownHook;
 
   SingleplexWorker(WorkerKey workerKey, int workerId, final Path workDir, Path logFile) {
+    this(workerKey, workerId, workDir, logFile, /* processLauncher= */ null);
+  }
+
+  SingleplexWorker(
+      WorkerKey workerKey,
+      int workerId,
+      final Path workDir,
+      Path logFile,
+      @Nullable WorkerProcessLauncher processLauncher) {
     super(workerKey, workerId, logFile);
     this.workDir = workDir;
+    this.processLauncher = processLauncher;
   }
 
   protected Subprocess createProcess() throws IOException, InterruptedException, UserExecException {
     ImmutableList<String> args = makeExecPathAbsolute(workerKey.getArgs());
-    return createProcessBuilder(args).start();
+    return startProcess(args);
+  }
+
+  /** Starts the worker either directly or through the configured process launcher. */
+  protected Subprocess startProcess(ImmutableList<String> argv) throws IOException {
+    if (processLauncher != null) {
+      return processLauncher.start(argv, workDir, logFile, workerKey.getEnv());
+    }
+    return createProcessBuilder(argv).start();
   }
 
   protected SubprocessBuilder createProcessBuilder(ImmutableList<String> argv) {

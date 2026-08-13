@@ -107,8 +107,9 @@ final class SandboxedWorker extends SingleplexWorker {
       Path workDir,
       Path logFile,
       @Nullable WorkerSandboxOptions hardenedSandboxOptions,
-      TreeDeleter treeDeleter) {
-    super(workerKey, workerId, workDir, logFile);
+      TreeDeleter treeDeleter,
+      @Nullable WorkerProcessLauncher processLauncher) {
+    super(workerKey, workerId, workDir, logFile, processLauncher);
     this.workerExecRoot =
         new WorkerExecRoot(
             workDir,
@@ -205,7 +206,7 @@ final class SandboxedWorker extends SingleplexWorker {
 
       args = commandLineBuilder.buildForCommand(args);
     }
-    return createProcessBuilder(args).start();
+    return startProcess(args);
   }
 
   @Override

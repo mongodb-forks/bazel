@@ -20,7 +20,10 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
+import com.google.common.hash.HashCode;
+import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -127,6 +130,30 @@ public class WorkerParserTest {
     assertThat(keyDynamicMultiplexSandboxing.isMultiplex()).isTrue();
     assertThat(keyDynamicMultiplexSandboxing.isSandboxed()).isTrue();
     assertThat(keyDynamicMultiplexSandboxing.getWorkerTypeName()).isEqualTo("multiplex-worker");
+  }
+
+  @Test
+  public void createWorkerKey_forceSandboxedWorkersDisablesUnsafeMultiplexing() {
+    WorkerOptions options = new WorkerOptions();
+    options.workerMultiplex = true;
+    options.multiplexSandboxing = false;
+    Spawn spawn = TestUtils.createSpawn(TestUtils.execRequirementsBuilder("Nom").buildOrThrow());
+
+    WorkerKey key =
+        WorkerParser.createWorkerKey(
+            spawn,
+            ImmutableList.of(),
+            ImmutableMap.of(),
+            fs.getPath("/outputbase/execroot"),
+            HashCode.fromInt(0),
+            ImmutableSortedMap.of(),
+            options,
+            /* dynamic= */ false,
+            WorkerProtocolFormat.PROTO,
+            /* forceSandboxedWorkers= */ true);
+
+    assertThat(key.isMultiplex()).isFalse();
+    assertThat(key.isSandboxed()).isTrue();
   }
 
   @Test

@@ -108,12 +108,48 @@ final class WorkerSpawnRunner implements SpawnRunner {
       WorkerOptions workerOptions,
       WorkerMetricsCollector workerMetricsCollector,
       Clock clock) {
+    this(
+        helpers,
+        execRoot,
+        workers,
+        reporter,
+        localEnvProvider,
+        binTools,
+        resourceManager,
+        runfilesTreeUpdater,
+        workerOptions,
+        workerMetricsCollector,
+        clock,
+        /* forceSandboxedWorkers= */ false);
+  }
+
+  /**
+   * Creates a worker runner that can force worker requests into writable worker sandboxes.
+   *
+   * <p>Container-backed workers need this when their shared execroot is intentionally mounted
+   * read-only.
+   */
+  public WorkerSpawnRunner(
+      SandboxHelpers helpers,
+      Path execRoot,
+      WorkerPool workers,
+      ExtendedEventHandler reporter,
+      LocalEnvProvider localEnvProvider,
+      BinTools binTools,
+      ResourceManager resourceManager,
+      RunfilesTreeUpdater runfilesTreeUpdater,
+      WorkerOptions workerOptions,
+      WorkerMetricsCollector workerMetricsCollector,
+      Clock clock,
+      boolean forceSandboxedWorkers) {
     this.helpers = helpers;
     this.execRoot = execRoot;
     this.reporter = reporter;
     this.resourceManager = resourceManager;
     this.runfilesTreeUpdater = runfilesTreeUpdater;
-    this.workerParser = new WorkerParser(execRoot, workerOptions, localEnvProvider, binTools);
+    this.workerParser =
+        new WorkerParser(
+            execRoot, workerOptions, localEnvProvider, binTools, forceSandboxedWorkers);
     this.workerOptions = workerOptions;
     this.resourceManager.setWorkerPool(workers);
     this.metricsCollector = workerMetricsCollector;

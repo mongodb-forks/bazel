@@ -56,18 +56,28 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
    * is not set.
    */
   @Nullable private final WorkerSandboxOptions hardenedSandboxOptions;
+  @Nullable private final WorkerProcessLauncher processLauncher;
 
   public WorkerFactory(Path workerBaseDir) {
-    this(workerBaseDir, null, null);
+    this(workerBaseDir, null, null, null);
+  }
+
+  WorkerFactory(
+      Path workerBaseDir,
+      @Nullable WorkerSandboxOptions hardenedSandboxOptions,
+      @Nullable AsynchronousTreeDeleter treeDeleter) {
+    this(workerBaseDir, hardenedSandboxOptions, treeDeleter, null);
   }
 
   public WorkerFactory(
       Path workerBaseDir,
       @Nullable WorkerSandboxOptions hardenedSandboxOptions,
-      @Nullable AsynchronousTreeDeleter treeDeleter) {
+      @Nullable AsynchronousTreeDeleter treeDeleter,
+      @Nullable WorkerProcessLauncher processLauncher) {
     this.workerBaseDir = workerBaseDir;
     this.hardenedSandboxOptions = hardenedSandboxOptions;
     this.treeDeleter = treeDeleter;
+    this.processLauncher = processLauncher;
   }
 
   public void setReporter(Reporter reporter) {
@@ -95,22 +105,30 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
     Worker worker;
     if (key.isSandboxed()) {
       if (key.isMultiplex()) {
-        WorkerMultiplexer workerMultiplexer = WorkerMultiplexerManager.getInstance(key, logFile);
+        WorkerMultiplexer workerMultiplexer =
+            WorkerMultiplexerManager.getInstance(key, logFile, processLauncher);
         Path workDir = getSandboxedWorkerPath(key);
         worker = new SandboxedWorkerProxy(key, workerId, logFile, workerMultiplexer, workDir);
       } else {
         Path workDir = getSandboxedWorkerPath(key, workerId);
         worker =
             new SandboxedWorker(
-                key, workerId, workDir, logFile, hardenedSandboxOptions, treeDeleter);
+                key,
+                workerId,
+                workDir,
+                logFile,
+                hardenedSandboxOptions,
+                treeDeleter,
+                processLauncher);
       }
     } else if (key.isMultiplex()) {
-      WorkerMultiplexer workerMultiplexer = WorkerMultiplexerManager.getInstance(key, logFile);
+      WorkerMultiplexer workerMultiplexer =
+          WorkerMultiplexerManager.getInstance(key, logFile, processLauncher);
       worker =
           new WorkerProxy(
               key, workerId, workerMultiplexer.getLogFile(), workerMultiplexer, key.getExecRoot());
     } else {
-      worker = new SingleplexWorker(key, workerId, key.getExecRoot(), logFile);
+      worker = new SingleplexWorker(key, workerId, key.getExecRoot(), logFile, processLauncher);
     }
 
     String msg =
@@ -238,12 +256,13 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
     }
     WorkerFactory that = (WorkerFactory) o;
     return workerBaseDir.equals(that.workerBaseDir)
-        && Objects.equals(this.hardenedSandboxOptions, that.hardenedSandboxOptions);
+        && Objects.equals(this.hardenedSandboxOptions, that.hardenedSandboxOptions)
+        && Objects.equals(this.processLauncher, that.processLauncher);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(workerBaseDir, hardenedSandboxOptions);
+    return Objects.hash(workerBaseDir, hardenedSandboxOptions, processLauncher);
   }
 
   /** This class simultaneously sends messages to a logger and an event reporter. */

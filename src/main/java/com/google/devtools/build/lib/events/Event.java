@@ -28,6 +28,7 @@ import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkThread.PrintLevel;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.SyntaxError;
 
@@ -419,11 +420,24 @@ public final class Event implements Reportable {
   }
 
   /**
-   * Returns a {@link StarlarkThread.PrintHandler} that sends {@link EventKind#DEBUG} events to the
-   * provided {@link EventHandler}.
+   * Returns a {@link StarlarkThread.PrintHandler} that sends print messages to the provided {@link
+   * EventHandler} at the requested level. The default level is {@link EventKind#DEBUG}.
    */
   public static StarlarkThread.PrintHandler makeDebugPrintHandler(EventHandler h) {
-    return (thread, msg) -> h.handle(Event.debug(thread.getCallerLocation(), msg));
+    return new StarlarkThread.PrintHandler() {
+      @Override
+      public void print(StarlarkThread thread, String msg) {
+        h.handle(Event.debug(thread.getCallerLocation(), msg));
+      }
+
+      @Override
+      public void print(StarlarkThread thread, String msg, PrintLevel level) {
+        h.handle(
+            level == PrintLevel.INFO
+                ? Event.info(thread.getCallerLocation(), msg)
+                : Event.debug(thread.getCallerLocation(), msg));
+      }
+    };
   }
 
   /**

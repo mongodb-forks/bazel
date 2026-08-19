@@ -183,6 +183,21 @@ public class BuildViewTest extends BuildViewTestBase {
   }
 
   @Test
+  public void testInfoPrintFromStarlark() throws Exception {
+    scratch.file(
+        "foo/rule.bzl",
+        "def _impl(ctx):",
+        "  print('an informational message', level = 'INFO')",
+        "  return []",
+        "gen = rule(implementation = _impl)");
+    scratch.file("foo/BUILD", "load(':rule.bzl', 'gen')", "gen(name = 'a')");
+
+    update("//foo:a");
+
+    assertContainsEvent("INFO /workspace/foo/rule.bzl:2:8: an informational message");
+  }
+
+  @Test
   public void testSyntaxErrorInDepPackage() throws Exception {
     // Check that a loading error in a dependency is properly reported.
     scratch.file("a/BUILD",

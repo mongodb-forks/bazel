@@ -190,6 +190,8 @@ final class ParamDescriptor {
       return Tuple.empty();
     } else if (expr.equals("\" \"")) {
       return " ";
+    } else if (expr.equals("\"DEBUG\"")) {
+      return "DEBUG";
     }
 
     Object x = defaultValueCache.get(expr);

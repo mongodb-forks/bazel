@@ -300,6 +300,22 @@ public final class StarlarkThread {
   @FunctionalInterface
   public interface PrintHandler {
     void print(StarlarkThread thread, String msg);
+
+    /**
+     * Handles a print statement at the specified level.
+     *
+     * <p>The default implementation preserves compatibility with handlers that only need the
+     * printed text.
+     */
+    default void print(StarlarkThread thread, String msg, PrintLevel level) {
+      print(thread, msg);
+    }
+  }
+
+  /** The levels supported by the Starlark {@code print} function. */
+  public enum PrintLevel {
+    DEBUG,
+    INFO
   }
 
   /** Returns the PrintHandler for Starlark print statements. */

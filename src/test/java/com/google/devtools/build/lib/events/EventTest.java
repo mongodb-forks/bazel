@@ -281,4 +281,16 @@ public class EventTest {
 
     verify(mockHandler).handle(Event.debug(Location.BUILTIN, "someMessage"));
   }
+
+  @Test
+  public void infoPrintHandler() {
+    EventHandler mockHandler = mock(EventHandler.class);
+    PrintHandler printHandler = Event.makeDebugPrintHandler(mockHandler);
+    StarlarkThread starlarkThread =
+        new StarlarkThread(Mutability.create(), StarlarkSemantics.DEFAULT);
+
+    printHandler.print(starlarkThread, "someMessage", StarlarkThread.PrintLevel.INFO);
+
+    verify(mockHandler).handle(Event.info(Location.BUILTIN, "someMessage"));
+  }
 }

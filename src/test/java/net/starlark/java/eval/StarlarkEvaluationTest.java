@@ -1962,6 +1962,28 @@ public final class StarlarkEvaluationTest {
   }
 
   @Test
+  public void testPrintLevel() throws Exception {
+    ParserInput input = ParserInput.fromLines("print('hello', level='INFO')");
+    List<StarlarkThread.PrintLevel> levels = new ArrayList<>();
+    try (Mutability mu = Mutability.create("test")) {
+      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      thread.setPrintHandler(
+          new StarlarkThread.PrintHandler() {
+            @Override
+            public void print(StarlarkThread unused, String msg) {}
+
+            @Override
+            public void print(
+                StarlarkThread unused, String msg, StarlarkThread.PrintLevel level) {
+              levels.add(level);
+            }
+          });
+      Starlark.execFile(input, FileOptions.DEFAULT, Module.create(), thread);
+    }
+    assertThat(levels).containsExactly(StarlarkThread.PrintLevel.INFO);
+  }
+
+  @Test
   public void testPrintBadKwargs() throws Exception {
     ev.new Scenario()
         .testIfErrorContains(

@@ -857,12 +857,13 @@ class MethodLibrary {
   @StarlarkMethod(
       name = "print",
       doc =
-          "Prints <code>args</code> as debug output. It will be prefixed with the string <code>"
-              + "\"DEBUG\"</code> and the location (file and line number) of this call. The "
-              + "exact way in which the arguments are converted to strings is unspecified and may "
-              + "change at any time. In particular, it may be different from (and more detailed "
-              + "than) the formatting done by <a href='#str'><code>str()</code></a> and <a "
-              + "href='#repr'><code>repr()</code></a>."
+          "Prints <code>args</code> as debug output by default. It will be prefixed with the "
+              + "string <code>\"DEBUG\"</code> and the location (file and line number) of this "
+              + "call. If <code>level</code> is <code>\"INFO\"</code>, the message is instead "
+              + "reported as informational output. The exact way in which the arguments are "
+              + "converted to strings is unspecified and may change at any time. In particular, "
+              + "it may be different from (and more detailed than) the formatting done by <a "
+              + "href='#str'><code>str()</code></a> and <a href='#repr'><code>repr()</code></a>."
               + "<p>Using <code>print</code> in production code is discouraged due to the spam it "
               + "creates for users. For deprecations, prefer a hard error using <a href=\"#fail\">"
               + "<code>fail()</code></a> whenever possible.",
@@ -872,12 +873,27 @@ class MethodLibrary {
             defaultValue = "\" \"",
             named = true,
             positional = false,
-            doc = "The separator string between the objects, default is space (\" \").")
+            doc = "The separator string between the objects, default is space (\" \")."),
+        @Param(
+            name = "level",
+            defaultValue = "\"DEBUG\"",
+            named = true,
+            positional = false,
+            doc = "The output level, either \"DEBUG\" or \"INFO\".")
       },
       // NB: as compared to Python3, we're missing optional named-only arguments 'end' and 'file'
       extraPositionals = @Param(name = "args", doc = "The objects to print."),
       useStarlarkThread = true)
-  public void print(String sep, Sequence<?> args, StarlarkThread thread) throws EvalException {
+  public void print(String sep, String level, Sequence<?> args, StarlarkThread thread)
+      throws EvalException {
+    StarlarkThread.PrintLevel printLevel;
+    try {
+      printLevel = StarlarkThread.PrintLevel.valueOf(level);
+    } catch (IllegalArgumentException e) {
+      throw Starlark.errorf(
+          "invalid print level %s, want \"DEBUG\" or \"INFO\"", Starlark.repr(level));
+    }
+
     Printer p = new Printer();
     String separator = "";
     for (Object x : args) {
@@ -891,7 +907,7 @@ class MethodLibrary {
       p.append("<== Starlark flag test ==>");
     }
 
-    thread.getPrintHandler().print(thread, p.toString());
+    thread.getPrintHandler().print(thread, p.toString(), printLevel);
   }
 
   @StarlarkMethod(

@@ -162,6 +162,18 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public boolean remoteDownloaderLocalFallback;
 
   @Option(
+      name = "experimental_remote_download_omit_local_fetch_warning_url",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      allowMultiple = true,
+      help =
+          "Omit the warning if the fetched file is not found in the remote cache. The value of"
+              + " this flag is an URL that will match the prefix of the URL that tried to fetch"
+              + " remotely. The URL should be in the format of https://example.com/one/two.")
+  public List<String> remoteDownloadOmitLocalFetchWarningUrls;
+
+  @Option(
       name = "experimental_remote_download_use_local_fallback_url",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,

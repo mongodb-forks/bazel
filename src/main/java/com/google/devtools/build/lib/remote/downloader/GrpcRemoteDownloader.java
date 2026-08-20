@@ -269,8 +269,24 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
         }
         throw e;
       }
-      eventHandler.handle(
-          Event.warn("Remote Cache: " + Utils.grpcAwareErrorMessage(e, verboseFailures)));
+
+      // Failing to find a particular artifact remotely can be expected, e.g. for URLs the remote
+      // cache is known not to serve. Suppress the warning for those, but keep it for every other
+      // URL so that genuine remote cache problems stay visible.
+      Optional<String> failedUrl =
+          urls.stream()
+              .map(URI::toString)
+              .filter(urlStr -> e.toString().contains(urlStr))
+              .findFirst();
+      boolean warn =
+          failedUrl.isEmpty()
+              || options.remoteDownloadOmitLocalFetchWarningUrls.stream()
+                  .noneMatch(failedUrl.get()::startsWith);
+
+      if (warn) {
+        eventHandler.handle(
+            Event.warn("Remote Cache: " + Utils.grpcAwareErrorMessage(e, verboseFailures)));
+      }
       httpDownloader.download(
           urls,
           headers,

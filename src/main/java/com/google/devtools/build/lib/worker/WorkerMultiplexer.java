@@ -120,6 +120,9 @@ public class WorkerMultiplexer {
   /** For testing only, allow a way to fake subprocesses. */
   private SubprocessFactory subprocessFactory;
 
+  /** Optional launcher used to enter a persistent container before starting the worker. */
+  @Nullable private final WorkerProcessLauncher processLauncher;
+
   /** A separate thread that sends requests. */
   private Thread requestSender;
 
@@ -146,10 +149,19 @@ public class WorkerMultiplexer {
   private Path workDir;
 
   WorkerMultiplexer(Path logFile, WorkerKey workerKey, int multiplexerId) {
+    this(logFile, workerKey, multiplexerId, /* processLauncher= */ null);
+  }
+
+  WorkerMultiplexer(
+      Path logFile,
+      WorkerKey workerKey,
+      int multiplexerId,
+      @Nullable WorkerProcessLauncher processLauncher) {
     this.status = new WorkerProcessStatus();
     this.logFile = logFile;
     this.workerKey = workerKey;
     this.multiplexerId = multiplexerId;
+    this.processLauncher = processLauncher;
   }
 
   /** Sets or clears the reporter for outputting verbose info. */
@@ -234,16 +246,24 @@ public class WorkerMultiplexer {
                     .getAbsolutePath()));
         args = ImmutableList.copyOf(newArgs);
       }
-      SubprocessBuilder processBuilder =
-          subprocessFactory != null
-              ? new SubprocessBuilder(clientEnv, subprocessFactory)
-              : new SubprocessBuilder(clientEnv);
-      processBuilder.setArgv(args);
-      processBuilder.setWorkingDirectory(workDir.getPathFile());
-      processBuilder.setStderr(logFile.getPathFile());
-      processBuilder.setEnv(workerKey.getEnv());
-      this.process = processBuilder.start();
+      // The subprocess factory is only set by tests, and takes precedence over the persistent
+      // container launcher so that tests keep faking the subprocess.
+      if (subprocessFactory == null && processLauncher != null) {
+        this.process =
+            processLauncher.start(args, workDir, logFile, workerKey.getEnv(), clientEnv);
+      } else {
+        SubprocessBuilder processBuilder =
+            subprocessFactory != null
+                ? new SubprocessBuilder(clientEnv, subprocessFactory)
+                : new SubprocessBuilder(clientEnv);
+        processBuilder.setArgv(args);
+        processBuilder.setWorkingDirectory(workDir.getPathFile());
+        processBuilder.setStderr(logFile.getPathFile());
+        processBuilder.setEnv(workerKey.getEnv());
+        this.process = processBuilder.start();
+      }
       status.maybeUpdateStatus(Status.ALIVE);
+
 
       recordingStream = new RecordingInputStream(process.getInputStream());
       recordingStream.startRecording(4096);

@@ -76,8 +76,9 @@ final class SandboxedWorker extends SingleplexWorker {
       @Nullable WorkerSandboxOptions hardenedSandboxOptions,
       TreeDeleter treeDeleter,
       boolean useInMemoryTracking,
-      @Nullable VirtualCgroupFactory cgroupFactory) {
-    super(workerKey, workerId, workDir, logFile, workerOptions, cgroupFactory);
+      @Nullable VirtualCgroupFactory cgroupFactory,
+      @Nullable WorkerProcessLauncher processLauncher) {
+    super(workerKey, workerId, workDir, logFile, workerOptions, cgroupFactory, processLauncher);
     Path tmpDirPath = SandboxHelpers.getTmpDirPath(workDir);
     this.workerExecRoot =
         new WorkerExecRoot(
@@ -183,7 +184,7 @@ final class SandboxedWorker extends SingleplexWorker {
       args = commandLineBuilder.buildForCommand(args);
     }
 
-    Subprocess process = createProcessBuilder(args, clientEnv).start();
+    Subprocess process = startProcess(args, clientEnv);
 
     // If using hardened sandbox (aka linux-sandbox), the linux-sandbox parent process moves the
     // sandboxed children processes (pid 1, 2) into the cgroup. But we still need to move the

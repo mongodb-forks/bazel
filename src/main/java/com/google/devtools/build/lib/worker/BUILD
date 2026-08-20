@@ -91,6 +91,7 @@ java_library(
     ],
     deps = [
         ":multiplex_worker",
+        ":persistent_container_worker_process_launcher",
         ":singleplex_worker",
         ":worker_factory",
         ":worker_options",
@@ -98,6 +99,7 @@ java_library(
         ":worker_pool_config",
         ":worker_pool_impl",
         ":worker_process_metrics",
+        ":worker_process_launcher",
         ":worker_spawn_runner",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -109,6 +111,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/runtime/commands/events",
         "//src/main/java/com/google/devtools/build/lib/sandbox:cgroups_info",
         "//src/main/java/com/google/devtools/build/lib/sandbox:linux_sandbox_util",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:persistent_container",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_helpers",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_options",
         "//src/main/java/com/google/devtools/build/lib/sandbox:tree_deleter",
@@ -194,6 +197,7 @@ java_library(
         ":worker_key",
         ":worker_options",
         ":worker_process_status",
+        ":worker_process_launcher",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/sandbox:tree_deleter",
         "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups",
@@ -273,6 +277,29 @@ java_library(
 )
 
 java_library(
+    name = "worker_process_launcher",
+    srcs = ["WorkerProcessLauncher.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "persistent_container_worker_process_launcher",
+    srcs = ["PersistentContainerWorkerProcessLauncher.java"],
+    deps = [
+        ":worker_process_launcher",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:persistent_container",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_options",
+        "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "singleplex_worker",
     srcs = [
         "SandboxedWorker.java",
@@ -285,6 +312,7 @@ java_library(
         ":worker_key",
         ":worker_options",
         ":worker_process_status",
+        ":worker_process_launcher",
         ":worker_protocol",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/exec:tree_deleter",
@@ -318,6 +346,7 @@ java_library(
         ":worker_exec_root",
         ":worker_key",
         ":worker_process_status",
+        ":worker_process_launcher",
         ":worker_protocol",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/events",

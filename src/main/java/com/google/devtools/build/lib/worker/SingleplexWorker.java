@@ -51,6 +51,9 @@ class SingleplexWorker extends Worker {
   /** The execution root of the worker. */
   protected final Path workDir;
 
+  /** Optional launcher used to enter a persistent container before starting the worker. */
+  @Nullable private final WorkerProcessLauncher processLauncher;
+
   /**
    * Stream for recording the WorkResponse as it's read, so that it can be printed in the case of
    * parsing failures.
@@ -84,16 +87,35 @@ class SingleplexWorker extends Worker {
       Path logFile,
       WorkerOptions options,
       @Nullable VirtualCgroupFactory cgroupFactory) {
+    this(
+        workerKey,
+        workerId,
+        workDir,
+        logFile,
+        options,
+        cgroupFactory,
+        /* processLauncher= */ null);
+  }
+
+  SingleplexWorker(
+      WorkerKey workerKey,
+      int workerId,
+      final Path workDir,
+      Path logFile,
+      WorkerOptions options,
+      @Nullable VirtualCgroupFactory cgroupFactory,
+      @Nullable WorkerProcessLauncher processLauncher) {
     super(workerKey, workerId, logFile, new WorkerProcessStatus());
     this.workDir = workDir;
     this.options = options;
     this.cgroupFactory = cgroupFactory;
+    this.processLauncher = processLauncher;
   }
 
   protected Subprocess createProcess(ImmutableMap<String, String> clientEnv)
       throws IOException, UserExecException {
     ImmutableList<String> args = makeExecPathAbsolute(workerKey.getArgs());
-    Subprocess process = createProcessBuilder(args, clientEnv).start();
+    Subprocess process = startProcess(args, clientEnv);
     if (cgroupFactory != null) {
       cgroup = cgroupFactory.create(workerId, ImmutableMap.of());
     } else if (options.useCgroupsOnLinux && CgroupsInfo.isSupported()) {
@@ -106,6 +128,15 @@ class SingleplexWorker extends Worker {
       cgroup.addProcess(process.getProcessId());
     }
     return process;
+  }
+
+  /** Starts the worker either directly or through the configured process launcher. */
+  protected Subprocess startProcess(
+      ImmutableList<String> argv, ImmutableMap<String, String> clientEnv) throws IOException {
+    if (processLauncher != null) {
+      return processLauncher.start(argv, workDir, logFile, workerKey.getEnv(), clientEnv);
+    }
+    return createProcessBuilder(argv, clientEnv).start();
   }
 
   protected SubprocessBuilder createProcessBuilder(

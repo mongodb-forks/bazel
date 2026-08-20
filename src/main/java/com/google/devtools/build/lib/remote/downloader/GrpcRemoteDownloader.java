@@ -89,6 +89,12 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   private static final String QUALIFIER_CHECKSUM_SRI = "checksum.sri";
   private static final String QUALIFIER_CANONICAL_ID = "bazel.canonical_id";
 
+  // When this environment variable is set to "1" in the client environment,
+  // the download order is reversed: the local (HTTP) downloader is tried first,
+  // and the remote asset API is only used as a fallback.
+  @VisibleForTesting
+  static final String REVERSE_REMOTE_API_ATTEMPT_ORDER_ENV = "REVERSE_REMOTE_API_ATTEMPT_ORDER";
+
   // The `:` character is not permitted in an HTTP header name. So, we use it to
   // delimit the qualifier prefix which denotes an HTTP header qualifer from the
   // header name itself.
@@ -161,6 +167,46 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
           context);
       return;
     }
+
+    // Optionally reverse the attempt order: try the local HTTP downloader first and only fall
+    // back to the remote asset API if it fails. Only meaningful when the local fallback is
+    // enabled at all.
+    boolean localFirst =
+        remoteDownloaderLocalFallback
+            && "1".equals(clientEnv.get(REVERSE_REMOTE_API_ATTEMPT_ORDER_ENV));
+
+    // Some URLs are known to always fail remotely, e.g. because they need credentials the remote
+    // downloader does not have. Route those through the local downloader first, skipping the
+    // remote asset API entirely on success.
+    boolean useFallbackFirst =
+        remoteDownloaderLocalFallback
+            && urls.stream()
+                .map(URI::toString)
+                .anyMatch(
+                    urlStr ->
+                        options.remoteDownloadUseLocalFallbackUrls.stream()
+                            .anyMatch(urlStr::startsWith));
+
+    if (localFirst || useFallbackFirst) {
+      try {
+        httpDownloader.download(
+            urls,
+            headers,
+            credentials,
+            checksum,
+            canonicalId,
+            destination,
+            eventHandler,
+            clientEnv,
+            type,
+            context);
+        return;
+      } catch (IOException e) {
+        eventHandler.handle(
+            Event.warn("Local download failed: " + e.getMessage() + ", trying remote downloader"));
+      }
+    }
+
     RequestMetadata metadata =
         TracingMetadataUtils.buildMetadata(
             buildRequestId,
@@ -216,14 +262,31 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
 
     } catch (StatusRuntimeException | IOException e) {
       eventHandler.post(new FetchEvent(eventUri, FetchId.Downloader.GRPC, /* success= */ false));
-      if (!remoteDownloaderLocalFallback) {
+      // If the local downloader already ran first, don't run it a second time.
+      if (localFirst || useFallbackFirst || !remoteDownloaderLocalFallback) {
         if (e instanceof StatusRuntimeException) {
           throw new IOException(e);
         }
         throw e;
       }
-      eventHandler.handle(
-          Event.warn("Remote Cache: " + Utils.grpcAwareErrorMessage(e, verboseFailures)));
+
+      // Failing to find a particular artifact remotely can be expected, e.g. for URLs the remote
+      // cache is known not to serve. Suppress the warning for those, but keep it for every other
+      // URL so that genuine remote cache problems stay visible.
+      Optional<String> failedUrl =
+          urls.stream()
+              .map(URI::toString)
+              .filter(urlStr -> e.toString().contains(urlStr))
+              .findFirst();
+      boolean warn =
+          failedUrl.isEmpty()
+              || options.remoteDownloadOmitLocalFetchWarningUrls.stream()
+                  .noneMatch(failedUrl.get()::startsWith);
+
+      if (warn) {
+        eventHandler.handle(
+            Event.warn("Remote Cache: " + Utils.grpcAwareErrorMessage(e, verboseFailures)));
+      }
       httpDownloader.download(
           urls,
           headers,

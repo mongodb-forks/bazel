@@ -50,6 +50,7 @@ java_test(
     srcs =
         [
             "AbstractContainerizingSandboxedSpawnTest.java",
+            "PersistentContainerProcessLauncherTest.java",
             "SandboxHelpersTest.java",
             "SandboxOptionsTest.java",
             "SymlinkedSandboxedSpawnTest.java",
@@ -66,6 +67,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/exec:tree_deleter",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_helpers",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_options",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:persistent_container",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandboxed_spawns",
         "//src/main/java/com/google/devtools/build/lib/sandbox:tree_deleter",
         "//src/main/java/com/google/devtools/build/lib/vfs",

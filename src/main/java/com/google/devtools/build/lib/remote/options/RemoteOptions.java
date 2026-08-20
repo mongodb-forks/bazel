@@ -162,6 +162,18 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public boolean remoteDownloaderLocalFallback;
 
   @Option(
+      name = "experimental_remote_download_use_local_fallback_url",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      allowMultiple = true,
+      help =
+          "Automatically fall back to the local downloader when fetching an artifact whose URL"
+              + " matches this flag's value. The value of this flag is a URL prefix matched against"
+              + " the artifact URL to be downloaded, in the format of https://example.com/one/two.")
+  public List<String> remoteDownloadUseLocalFallbackUrls;
+
+  @Option(
       name = "experimental_remote_downloader_propagate_credentials",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.REMOTE,

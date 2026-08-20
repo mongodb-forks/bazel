@@ -175,7 +175,19 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
         remoteDownloaderLocalFallback
             && "1".equals(clientEnv.get(REVERSE_REMOTE_API_ATTEMPT_ORDER_ENV));
 
-    if (localFirst) {
+    // Some URLs are known to always fail remotely, e.g. because they need credentials the remote
+    // downloader does not have. Route those through the local downloader first, skipping the
+    // remote asset API entirely on success.
+    boolean useFallbackFirst =
+        remoteDownloaderLocalFallback
+            && urls.stream()
+                .map(URI::toString)
+                .anyMatch(
+                    urlStr ->
+                        options.remoteDownloadUseLocalFallbackUrls.stream()
+                            .anyMatch(urlStr::startsWith));
+
+    if (localFirst || useFallbackFirst) {
       try {
         httpDownloader.download(
             urls,
@@ -251,7 +263,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     } catch (StatusRuntimeException | IOException e) {
       eventHandler.post(new FetchEvent(eventUri, FetchId.Downloader.GRPC, /* success= */ false));
       // If the local downloader already ran first, don't run it a second time.
-      if (localFirst || !remoteDownloaderLocalFallback) {
+      if (localFirst || useFallbackFirst || !remoteDownloaderLocalFallback) {
         if (e instanceof StatusRuntimeException) {
           throw new IOException(e);
         }

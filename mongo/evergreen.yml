@@ -1,0 +1,210 @@
+parameters:
+  - key: version
+    value: "9.2.0"
+    description: bazel version
+
+functions:
+  "fetch source":
+    - command: git.get_project
+      params:
+        directory: src
+
+  "update bazel version expansions":
+    - command: subprocess.exec
+      display_name: "build"
+      type: test
+      params:
+        binary: bash
+        working_dir: src
+        args:
+          - "mongo/update_expansions.sh"
+          - "${build_os|default}"
+          - "${version}"
+          - "${ext}"
+    - command: expansions.update
+      params:
+        file: src/bazel_expansions.yml
+
+  "upload binary":
+    - command: s3.put
+      display_name: "upload binary"
+      params:
+        aws_key: ${aws_key}
+        aws_secret: ${aws_secret}
+        local_file: src/${bazel_file_name}
+        remote_file: bazel_binary_patch_builds/${version_id}/${bazel_version}/${bazel_file_name}
+        bucket: mdb-build-public 
+        permissions: public-read
+        content_type: application/octet-stream
+        display_name: Bazel Binary
+    - command: s3.put
+      display_name: "upload binary"
+      params:
+        aws_key: ${aws_key}
+        aws_secret: ${aws_secret}
+        local_file: src/${bazel_file_name}.sha256
+        remote_file: bazel_binary_patch_builds/${version_id}/${bazel_version}/${bazel_file_name}.sha256
+        bucket: mdb-build-public 
+        permissions: public-read
+        content_type: text/plain
+        display_name: Bazel Binary SHA sig
+  
+tasks:
+- name: build
+  commands:
+    - func: "fetch source"
+    - func: "update bazel version expansions"
+    - command: subprocess.exec
+      display_name: "build"
+      type: test
+      params:
+        binary: bash
+        working_dir: src
+        add_to_path:
+          - "C:/python/Python310"
+          - ${workdir}/src/msys/msys64/usr/bin
+        args:
+          - "mongo/build.sh"
+          - "${bazel_url}"
+          - "${bazel_version}"
+          - "${bazel_file_name}"
+          - "${ubi_version}"
+    - func: "upload binary"
+
+- name: push
+  patchable: false
+  depends_on: 
+    - name: build
+  commands:
+    - func: "fetch source"
+    - func: "update bazel version expansions"
+    - command: s3.get
+      display_name: "download binary"
+      params:
+        aws_key: ${aws_key}
+        aws_secret: ${aws_secret}
+        local_file: ${bazel_file_name}
+        remote_file: bazel_binary_patch_builds/${version_id}/${bazel_version}/${bazel_file_name}
+        bucket: mdb-build-public 
+    - command: s3.get
+      display_name: "download sha"
+      params:
+        aws_key: ${aws_key}
+        aws_secret: ${aws_secret}
+        local_file: ${bazel_file_name}.sha256
+        remote_file: bazel_binary_patch_builds/${version_id}/${bazel_version}/${bazel_file_name}.sha256
+        bucket: mdb-build-public 
+    - command: subprocess.exec
+      display_name: "build"
+      type: test
+      params:
+        binary: sha256sum
+        args:
+          - "${bazel_file_name}.sha256"
+    - command: s3.put
+      display_name: "upload binary"
+      params:
+        aws_key: ${aws_key}
+        aws_secret: ${aws_secret}
+        local_file: ${bazel_file_name}
+        remote_file: bazel_binary_waterfall_builds/${revision}/${bazel_version}/${bazel_file_name}
+        bucket: mdb-build-public 
+        permissions: public-read
+        content_type: application/octet-stream
+        display_name: Bazel Binary
+    - command: s3.put
+      display_name: "upload binary"
+      params:
+        aws_key: ${aws_key}
+        aws_secret: ${aws_secret}
+        local_file: ${bazel_file_name}.sha256
+        remote_file: bazel_binary_waterfall_builds/${revision}/${bazel_version}/${bazel_file_name}.sha256
+        bucket: mdb-build-public 
+        permissions: public-read
+        content_type: text/plain
+        display_name: Bazel Binary SHA sig
+  
+buildvariants:
+
+- name: linux_x86_64
+  display_name: Linux x86_64
+  run_on:
+  - rhel8.8-large
+  expansions:
+    bazel_url: https://github.com/bazelbuild/bazel/releases/download/9.1.1/bazel-9.1.1-linux-x86_64
+  tasks:
+  - name: build
+  - name: push
+
+- name: linux_arm64
+  display_name: Linux arm64
+  run_on:
+  - rhel8.8-arm64-large
+  expansions:
+    bazel_url: https://github.com/bazelbuild/bazel/releases/download/9.1.1/bazel-9.1.1-linux-arm64
+  tasks:
+  - name: build
+  - name: push
+
+- name: rhel7_x86_64
+  display_name: RHEL7 x86_64
+  run_on:
+  - ubuntu2204-large
+  expansions:
+    bazel_url: https://github.com/bazelbuild/bazel/releases/download/9.1.1/bazel-9.1.1-linux-x86_64
+    ubi_version: ubi7
+    build_os: rhel7
+  tasks:
+  - name: build
+  - name: push
+
+- name: linux_s390x
+  display_name: Linux s390x
+  run_on:
+  - rhel83-zseries-large
+  expansions:
+    bazel_url: https://mdb-build-public.s3.amazonaws.com/bazel-binaries/9.1.1/bazel-9.1.1-linux-s390x
+  tasks:
+  - name: build
+  - name: push
+
+- name: linux_ppc
+  display_name: Linux PPC
+  run_on:
+  - rhel81-power8-large
+  expansions:
+    bazel_url: https://mdb-build-public.s3.amazonaws.com/bazel-binaries/9.1.1/bazel-9.1.1-linux-ppc64le
+  tasks:
+  - name: build
+  - name: push
+
+- name: windows_x86_64
+  display_name: Windows x86_64
+  run_on:
+  - windows-2022-large
+  expansions:
+    bazel_url: https://mdb-build-public.s3.amazonaws.com/bazelisk-binaries/v1.19.0/bazelisk-windows-amd64.exe
+    ext: ".exe"
+  tasks:
+  - name: build
+  - name: push
+    
+- name: macos_x86_64
+  display_name: Macos x86_64
+  run_on:
+  - macos-14
+  expansions:
+    bazel_url: https://mdb-build-public.s3.amazonaws.com/bazelisk-binaries/v1.19.0/bazelisk-darwin-amd64
+  tasks:
+  - name: build
+  - name: push
+
+- name: macos_arm64
+  display_name: Macos arm64
+  run_on:
+  - macos-14-arm64
+  expansions:
+    bazel_url: https://mdb-build-public.s3.amazonaws.com/bazelisk-binaries/v1.19.0/bazelisk-darwin-arm64
+  tasks:
+  - name: build
+  - name: push

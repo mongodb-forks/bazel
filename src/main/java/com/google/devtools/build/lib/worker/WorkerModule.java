@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.runtime.commands.events.CleanStartingEvent;
 import com.google.devtools.build.lib.sandbox.AsynchronousTreeDeleter;
 import com.google.devtools.build.lib.sandbox.CgroupsInfo;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxUtil;
+import com.google.devtools.build.lib.sandbox.PersistentContainerProcessLauncher;
 import com.google.devtools.build.lib.sandbox.SandboxOptions;
 import com.google.devtools.build.lib.sandbox.cgroups.VirtualCgroup;
 import com.google.devtools.build.lib.sandbox.cgroups.VirtualCgroupFactory;
@@ -57,6 +58,9 @@ public class WorkerModule extends BlazeModule {
   WorkerPoolConfig config;
   @VisibleForTesting WorkerPool workerPool;
   @Nullable private WorkerLifecycleManager workerLifecycleManager;
+  // Persistent containers mount the shared execroot read-only. Their workers must use the
+  // separately mounted worker sandbox directory for both request isolation and output writes.
+  private boolean forceSandboxedWorkers;
 
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(String commandName) {
@@ -91,15 +95,46 @@ public class WorkerModule extends BlazeModule {
   @Subscribe
   public void buildStarting(BuildStartingEvent event) {
     WorkerOptions options = checkNotNull(event.request().getOptions(WorkerOptions.class));
+    forceSandboxedWorkers = false;
     if (workerFactory != null) {
       workerFactory.setReporter(options.workerVerbose ? env.getReporter() : null);
     }
+    SandboxOptions sandboxOptions = event.request().getOptions(SandboxOptions.class);
     Path workerDir =
         env.getOutputBase().getRelative(env.getRuntime().getProductName() + "-workers");
+    @Nullable WorkerProcessLauncher processLauncher = null;
+    if (sandboxOptions != null && sandboxOptions.enablePersistentContainerSandbox) {
+      if (!PersistentContainerProcessLauncher.isConfigured(sandboxOptions)) {
+        env.getReporter()
+            .handle(
+                Event.error(
+                    "Persistent-container sandboxing is enabled but persistent workers cannot "
+                        + "be configured because the Python, runner, or configuration option is "
+                        + "missing."));
+      } else {
+        if (!sandboxOptions.persistentContainerWorkerDir.isEmpty()) {
+          workerDir =
+              env.getRuntime()
+                  .getFileSystem()
+                  .getPath(sandboxOptions.persistentContainerWorkerDir);
+          processLauncher = PersistentContainerWorkerProcessLauncher.fromOptions(sandboxOptions);
+          forceSandboxedWorkers = true;
+        } else {
+          env.getReporter()
+              .handle(
+                  Event.error(
+                      "Persistent-container sandboxing is enabled but "
+                          + "--experimental_persistent_container_worker_dir is missing; workers "
+                          + "would otherwise use an unmounted directory."));
+        }
+      }
+    }
     BlazeWorkspace workspace = env.getBlazeWorkspace();
     WorkerSandboxOptions workerSandboxOptions;
-    SandboxOptions sandboxOptions = event.request().getOptions(SandboxOptions.class);
-    if (options.sandboxHardening) {
+    // The persistent-container launcher must be the outermost process. Do not put the host
+    // linux-sandbox binary inside the container command line; the container already supplies the
+    // execution boundary while SandboxedWorker supplies per-request filesystem isolation.
+    if (options.sandboxHardening && !forceSandboxedWorkers) {
       workerSandboxOptions =
           new WorkerSandboxOptions(
               LinuxSandboxUtil.getLinuxSandbox(workspace),
@@ -135,7 +170,8 @@ public class WorkerModule extends BlazeModule {
                 options.useCgroupsOnLinux);
 
     WorkerFactory newWorkerFactory =
-        new WorkerFactory(workerDir, options, workerSandboxOptions, treeDeleter, cgroupFactory);
+        new WorkerFactory(
+            workerDir, options, workerSandboxOptions, treeDeleter, cgroupFactory, processLauncher);
     if (!newWorkerFactory.equals(workerFactory)) {
       if (workerDir.exists()) {
         try {
@@ -246,7 +282,8 @@ public class WorkerModule extends BlazeModule {
             RunfilesTreeUpdater.forCommandEnvironment(env),
             env.getOptions().getOptions(WorkerOptions.class),
             WorkerProcessMetricsCollector.instance(),
-            env.getClock());
+            env.getClock(),
+            forceSandboxedWorkers);
     ExecutionOptions executionOptions =
         checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
     registryBuilder.registerStrategy(

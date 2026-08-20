@@ -316,6 +316,27 @@ public final class SandboxModule extends BlazeModule {
                       + " command line option to enable it"));
     }
 
+    if (options.enablePersistentContainerSandbox) {
+      if (!PersistentContainerProcessLauncher.isConfigured(options)) {
+        cmdEnv
+            .getReporter()
+            .handle(
+                Event.error(
+                    "Persistent-container sandboxing is enabled but its Python, runner, or "
+                        + "configuration option is missing."));
+      } else {
+        PersistentContainerProcessLauncher launcher =
+            PersistentContainerProcessLauncher.fromOptions(options);
+        SpawnRunner spawnRunner =
+            new PersistentContainerSandboxedSpawnRunner(
+                cmdEnv, sandboxBase, treeDeleter, launcher);
+        spawnRunners.add(spawnRunner);
+        builder.registerStrategy(
+            new PersistentContainerSandboxedStrategy(spawnRunner, executionOptions),
+            "persistent-container");
+      }
+    }
+
     // This is the preferred sandboxing strategy on Linux.
     if (linuxSandboxSupported) {
       SpawnRunner spawnRunner =

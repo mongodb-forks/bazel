@@ -56,6 +56,7 @@ public class WorkerFactory {
    * is not set.
    */
   @Nullable private final WorkerSandboxOptions hardenedSandboxOptions;
+  @Nullable private final WorkerProcessLauncher processLauncher;
 
   public WorkerFactory(Path workerBaseDir, WorkerOptions workerOptions) {
     this(workerBaseDir, workerOptions, null, null, null);
@@ -67,11 +68,28 @@ public class WorkerFactory {
       @Nullable WorkerSandboxOptions hardenedSandboxOptions,
       @Nullable AsynchronousTreeDeleter treeDeleter,
       @Nullable VirtualCgroupFactory cgroupFactory) {
+    this(
+        workerBaseDir,
+        workerOptions,
+        hardenedSandboxOptions,
+        treeDeleter,
+        cgroupFactory,
+        /* processLauncher= */ null);
+  }
+
+  public WorkerFactory(
+      Path workerBaseDir,
+      WorkerOptions workerOptions,
+      @Nullable WorkerSandboxOptions hardenedSandboxOptions,
+      @Nullable AsynchronousTreeDeleter treeDeleter,
+      @Nullable VirtualCgroupFactory cgroupFactory,
+      @Nullable WorkerProcessLauncher processLauncher) {
     this.workerBaseDir = workerBaseDir;
     this.workerOptions = workerOptions;
     this.hardenedSandboxOptions = hardenedSandboxOptions;
     this.treeDeleter = treeDeleter;
     this.cgroupFactory = cgroupFactory;
+    this.processLauncher = processLauncher;
   }
 
   public void setReporter(Reporter reporter) {
@@ -94,7 +112,8 @@ public class WorkerFactory {
     Worker worker;
     if (key.isSandboxed()) {
       if (key.isMultiplex()) {
-        WorkerMultiplexer workerMultiplexer = WorkerMultiplexerManager.getInstance(key, logFile);
+        WorkerMultiplexer workerMultiplexer =
+            WorkerMultiplexerManager.getInstance(key, logFile, processLauncher);
         int multiplexerId = workerMultiplexer.getMultiplexerId();
         Path workDir = getMultiplexSandboxedWorkerPath(key, multiplexerId);
         worker =
@@ -118,17 +137,25 @@ public class WorkerFactory {
                 hardenedSandboxOptions,
                 treeDeleter,
                 key.useInMemoryTracking(),
-                cgroupFactory);
+                cgroupFactory,
+                processLauncher);
       }
     } else if (key.isMultiplex()) {
-      WorkerMultiplexer workerMultiplexer = WorkerMultiplexerManager.getInstance(key, logFile);
+      WorkerMultiplexer workerMultiplexer =
+          WorkerMultiplexerManager.getInstance(key, logFile, processLauncher);
       worker =
           new WorkerProxy(
               key, workerId, workerMultiplexer.getLogFile(), workerMultiplexer, key.getExecRoot());
     } else {
       worker =
           new SingleplexWorker(
-              key, workerId, key.getExecRoot(), logFile, workerOptions, cgroupFactory);
+              key,
+              workerId,
+              key.getExecRoot(),
+              logFile,
+              workerOptions,
+              cgroupFactory,
+              processLauncher);
     }
 
     String msg =
@@ -252,12 +279,13 @@ public class WorkerFactory {
     }
     return workerBaseDir.equals(that.workerBaseDir)
         && workerOptions.useCgroupsOnLinux == that.workerOptions.useCgroupsOnLinux
-        && Objects.equals(this.hardenedSandboxOptions, that.hardenedSandboxOptions);
+        && Objects.equals(this.hardenedSandboxOptions, that.hardenedSandboxOptions)
+        && Objects.equals(this.processLauncher, that.processLauncher);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(workerBaseDir, hardenedSandboxOptions);
+    return Objects.hash(workerBaseDir, hardenedSandboxOptions, processLauncher);
   }
 
   /** This class simultaneously sends messages to a logger and an event reporter. */

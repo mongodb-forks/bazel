@@ -235,6 +235,53 @@ public class SandboxOptions extends OptionsBase {
   public boolean enableDockerSandbox;
 
   @Option(
+      name = "experimental_enable_persistent_container_sandbox",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "Run local actions through a pre-existing persistent container. The container lifecycle "
+              + "is owned by the caller; Bazel invokes the configured runner once for each action.")
+  public boolean enablePersistentContainerSandbox;
+
+  @Option(
+      name = "experimental_persistent_container_python",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "Absolute path to the Python interpreter used by the persistent-container runner.")
+  public String persistentContainerPython;
+
+  @Option(
+      name = "experimental_persistent_container_runner",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "Absolute path to a runner accepting CONFIG REAL_TOOL [ARGS...] and executing the tool "
+              + "inside the persistent container.")
+  public String persistentContainerRunner;
+
+  @Option(
+      name = "experimental_persistent_container_config",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help = "Absolute path to the persistent-container runner configuration file.")
+  public String persistentContainerConfig;
+
+  @Option(
+      name = "experimental_persistent_container_worker_dir",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "Writable host directory mounted into the persistent container for Bazel persistent "
+              + "workers. Required when persistent-container sandboxing is enabled.")
+  public String persistentContainerWorkerDir;
+
+  @Option(
       name = "experimental_docker_image",
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,

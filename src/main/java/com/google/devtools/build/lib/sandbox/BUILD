@@ -92,6 +92,7 @@ java_library(
         ":abstract_sandbox_spawn_runner",
         ":darwin_sandbox",
         ":docker_sandbox",
+        ":persistent_container",
         ":linux_sandbox",
         ":process_wrapper_sandbox",
         ":sandbox_helpers",
@@ -347,5 +348,31 @@ java_library(
         "//third_party:flogger",
         "//third_party:guava",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
+    ],
+)
+
+java_library(
+    name = "persistent_container",
+    srcs = [
+        "PersistentContainerProcessLauncher.java",
+        "PersistentContainerSandboxedSpawnRunner.java",
+        "PersistentContainerSandboxedStrategy.java",
+    ],
+    deps = [
+        ":abstract_sandbox_spawn_runner",
+        ":sandbox_helpers",
+        ":sandbox_options",
+        ":sandboxed_spawns",
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/exec:abstract_spawn_strategy",
+        "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
+        "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
+        "//src/main/java/com/google/devtools/build/lib/exec:tree_deleter",
+        "//src/main/java/com/google/devtools/build/lib/exec/local",
+        "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:guava",
     ],
 )

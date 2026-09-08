@@ -36,6 +36,19 @@ case "$(uname -m)" in
     # rules_java's registered java toolchains hardcode a JDK 25 runtime that does
     # not exist here, so prefer our own. See mongo/toolchains/BUILD.
     repo_args+=(--extra_toolchains=//mongo/toolchains:jdk21_toolchain_definition)
+
+    # The Temurin jmods archive needed to jlink the embedded JDK is not on
+    # mirror.bazel.build, and bazel's downloader gets "Connection refused"
+    # reaching github.com from these builders -- though curl works. Pre-fetch it
+    # into a distdir, where bazel picks it up by basename and verifies the hash.
+    # Keep in sync with openjdk_linux_*_jmods in //:repositories.bzl.
+    jmods_arch=ppc64le
+    [ "$(uname -m)" = s390x ] && jmods_arch=s390x
+    jmods_file="OpenJDK25U-jmods_${jmods_arch}_linux_hotspot_25.0.2_10.tar.gz"
+    mkdir -p /var/tmp/distdir
+    curl -fL -o "/var/tmp/distdir/${jmods_file}" \
+      "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.2%2B10/${jmods_file}"
+    repo_args+=(--distdir=/var/tmp/distdir)
     ;;
 esac
 
@@ -51,6 +64,17 @@ if [[ "$1" == *.zip ]]; then
   rm -rf /var/tmp/bazel_dist
   mkdir -p /var/tmp/bazel_dist
   unzip -q bazel_dist.zip -d /var/tmp/bazel_dist
+
+  # The dist archive pins the same protobuf 33.4 and carries its own MODULE.bazel,
+  # so it needs the big-endian upb fix too or the bootstrap crashes on s390x.
+  cp third_party/protobuf-bigendian.patch /var/tmp/bazel_dist/third_party/
+  sed -i 's|patches = \["//third_party:protobuf.patch"\],|patches = ["//third_party:protobuf.patch", "//third_party:protobuf-bigendian.patch"],|' \
+    /var/tmp/bazel_dist/MODULE.bazel
+  grep -q "protobuf-bigendian.patch" /var/tmp/bazel_dist/MODULE.bazel || {
+    echo "Failed to add the big-endian protobuf patch to the dist MODULE.bazel" >&2
+    exit 1
+  }
+
   (cd /var/tmp/bazel_dist && EXTRA_BAZEL_ARGS="${bootstrap_args[*]}" bash ./compile.sh)
   cp /var/tmp/bazel_dist/output/bazel bazel_bootstrap
 else

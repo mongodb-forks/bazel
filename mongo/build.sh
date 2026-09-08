@@ -4,7 +4,7 @@ set -o errexit
 set -o verbose
 
 if [[ "$OSTYPE" == "linux"* ]]; then
-  bash mongo/build_linux.sh "$1" "$2" "$3" "$4"
+  bash mongo/build_linux.sh "$1" "$2" "$3"
 elif [[ "$OSTYPE" == "darwin"* ]]; then
   bash mongo/build_macos.sh "$1" "$2" "$3"
 else

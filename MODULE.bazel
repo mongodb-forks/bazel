@@ -110,10 +110,15 @@ single_version_override(
 # required fields early. This reduces the memory usage of Bazel and avoids
 # spread in memory usage between Bazel and Blaze.
 # https://github.com/protocolbuffers/protobuf/blob/adf9e8b80fd10398b82e16c4ea72f2d2cffb0e9b/src/google/protobuf/compiler/java/full/message.cc#L884C1-L899C6
+# 4. Fix a upb decoder bug that crashes protoc plugins on big-endian platforms
+# (s390x). Fixed upstream in protobuf 35.0, too far ahead to upgrade to here.
 single_version_override(
     module_name = "protobuf",
     patch_strip = 1,
-    patches = ["//third_party:protobuf.patch"],
+    patches = [
+        "//third_party:protobuf.patch",
+        "//third_party:protobuf-bigendian.patch",
+    ],
     version = "33.4",
 )
 
@@ -353,8 +358,10 @@ use_repo(
     "graalvm_ce_toolchains",
     "graalvm_oracle",
     "openjdk_linux_aarch64_vanilla",
+    "openjdk_linux_ppc64le_jmods",
     "openjdk_linux_ppc64le_vanilla",
     "openjdk_linux_riscv64_vanilla",
+    "openjdk_linux_s390x_jmods",
     "openjdk_linux_s390x_vanilla",
     "openjdk_linux_vanilla",
     "openjdk_macos_aarch64_vanilla",

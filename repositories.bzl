@@ -97,6 +97,15 @@ def embedded_jdk_repositories():
         downloaded_file_path = "adoptopenjdk-ppc64le-vanilla.tar.gz",
         url = "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.2%2B10/OpenJDK25U-jdk_ppc64le_linux_hotspot_25.0.2_10.tar.gz",
     )
+    # The Adoptium Temurin JDK above has JEP 493 enabled, which means it does not ship with jmods.
+    # These are needed for cross-jlinking (minimizing the JDK on a different platform).
+    # https://adoptium.net/news/2025/08/eclipse-temurin-jdk24-JEP493-enabled
+    http_file(
+        name = "openjdk_linux_ppc64le_jmods",
+        integrity = "sha256-W3P7xE657UuuWvmeZYAOY/T1l0J0qJh461eoXMkuLO4=",
+        downloaded_file_path = "temurin-linux-ppc64le-jmods.tar.gz",
+        url = "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.2%2B10/OpenJDK25U-jmods_ppc64le_linux_hotspot_25.0.2_10.tar.gz",
+    )
     http_file(
         name = "openjdk_linux_riscv64_vanilla",
         integrity = "sha256-FoEZ5PujUPTms8qSRQorkKhQK4miNaBEFemt+fXTFk4=",
@@ -108,6 +117,15 @@ def embedded_jdk_repositories():
         integrity = "sha256-FeXLytzz1DYjwxuCUGPNwoF7nxuoQLUdxu9w5dM8hOM=",
         downloaded_file_path = "adoptopenjdk-s390x-vanilla.tar.gz",
         url = "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.2%2B10/OpenJDK25U-jdk_s390x_linux_hotspot_25.0.2_10.tar.gz",
+    )
+    # The Adoptium Temurin JDK above has JEP 493 enabled, which means it does not ship with jmods.
+    # These are needed for cross-jlinking (minimizing the JDK on a different platform).
+    # https://adoptium.net/news/2025/08/eclipse-temurin-jdk24-JEP493-enabled
+    http_file(
+        name = "openjdk_linux_s390x_jmods",
+        integrity = "sha256-q+ojr8SqMWGRMZWCfyBcJw6zaJTCfjhoLHEaTDmAJ4k=",
+        downloaded_file_path = "temurin-linux-s390x-jmods.tar.gz",
+        url = "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.2%2B10/OpenJDK25U-jmods_s390x_linux_hotspot_25.0.2_10.tar.gz",
     )
     http_file(
         name = "openjdk_macos_x86_64_vanilla",

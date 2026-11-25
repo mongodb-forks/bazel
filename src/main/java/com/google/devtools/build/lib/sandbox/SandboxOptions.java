@@ -245,6 +245,18 @@ public class SandboxOptions extends OptionsBase {
   public boolean enablePersistentContainerSandbox;
 
   @Option(
+      name = "experimental_persistent_container_input_manifest_mnemonic",
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "For this action mnemonic, pass declared inputs and outputs to the persistent-container "
+              + "runner in a manifest instead of creating input symlinks on the host. Requires "
+              + "a compatible runner. Can be specified multiple times.")
+  public List<String> persistentContainerInputManifestMnemonics;
+
+  @Option(
       name = "experimental_persistent_container_python",
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,

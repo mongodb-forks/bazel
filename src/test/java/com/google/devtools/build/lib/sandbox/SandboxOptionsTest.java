@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -28,6 +29,17 @@ import org.junit.runners.JUnit4;
 public final class SandboxOptionsTest {
 
   private ImmutableMap.Entry<String, String> pathPair;
+
+  @Test
+  public void persistentContainerInputManifestIsOptInByMnemonic() throws Exception {
+    var parser = OptionsParser.builder().optionsClasses(SandboxOptions.class).build();
+    assertThat(parser.getOptions(SandboxOptions.class).persistentContainerInputManifestMnemonics)
+        .isEmpty();
+
+    parser.parse("--experimental_persistent_container_input_manifest_mnemonic=CppCompile");
+    assertThat(parser.getOptions(SandboxOptions.class).persistentContainerInputManifestMnemonics)
+        .containsExactly("CppCompile");
+  }
 
   @Test
   public void testParsingAdditionalMounts_singlePathWithoutColonSucess() throws Exception {

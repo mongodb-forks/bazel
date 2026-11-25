@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
@@ -40,6 +41,7 @@ final class PersistentContainerSandboxedSpawnRunner extends AbstractSandboxSpawn
   private final LocalEnvProvider localEnvProvider;
   private final TreeDeleter treeDeleter;
   private final PersistentContainerProcessLauncher launcher;
+  private final ImmutableSet<String> inputManifestMnemonics;
 
   PersistentContainerSandboxedSpawnRunner(
       CommandEnvironment cmdEnv,
@@ -52,6 +54,8 @@ final class PersistentContainerSandboxedSpawnRunner extends AbstractSandboxSpawn
     this.localEnvProvider = LocalEnvProvider.forCurrentOs(cmdEnv.getClientEnv());
     this.treeDeleter = treeDeleter;
     this.launcher = launcher;
+    this.inputManifestMnemonics =
+        ImmutableSet.copyOf(getSandboxOptions().persistentContainerInputManifestMnemonics);
   }
 
   @Override
@@ -80,6 +84,21 @@ final class PersistentContainerSandboxedSpawnRunner extends AbstractSandboxSpawn
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
             execRoot);
     SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
+
+    if (inputManifestMnemonics.contains(spawn.getMnemonic())
+        && PersistentContainerManifestSpawn.supportsLayout(inputs, outputs)
+        && spawn.getOutputFiles().stream().noneMatch(output -> output.isSymlink())) {
+      return new PersistentContainerManifestSpawn(
+          sandboxPath,
+          sandboxExecRoot,
+          launcher.wrap(spawn.getArguments()),
+          environment,
+          inputs,
+          outputs,
+          getWritableDirs(sandboxExecRoot, environment),
+          treeDeleter,
+          spawn.getMnemonic());
+    }
 
     return new SymlinkedSandboxedSpawn(
         sandboxPath,

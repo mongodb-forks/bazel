@@ -354,6 +354,7 @@ java_library(
 java_library(
     name = "persistent_container",
     srcs = [
+        "PersistentContainerManifestSpawn.java",
         "PersistentContainerProcessLauncher.java",
         "PersistentContainerSandboxedSpawnRunner.java",
         "PersistentContainerSandboxedStrategy.java",
@@ -371,8 +372,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:tree_deleter",
         "//src/main/java/com/google/devtools/build/lib/exec/local",
         "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:gson",
         "//third_party:guava",
     ],
 )

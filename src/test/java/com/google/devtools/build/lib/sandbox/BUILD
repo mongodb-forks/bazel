@@ -50,12 +50,16 @@ java_test(
     srcs =
         [
             "AbstractContainerizingSandboxedSpawnTest.java",
+            "PersistentContainerManifestSpawnTest.java",
             "PersistentContainerProcessLauncherTest.java",
             "SandboxHelpersTest.java",
             "SandboxOptionsTest.java",
             "SymlinkedSandboxedSpawnTest.java",
         ],
-    jvm_flags = ["-Djava.lang.Thread.allowVirtualThreads=true"],
+    jvm_flags = [
+        "--add-opens=java.base/java.lang=ALL-UNNAMED",
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         "//src/test/java/com/google/devtools/build/lib:test_runner",
